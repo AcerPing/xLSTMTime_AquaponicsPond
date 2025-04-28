@@ -34,7 +34,7 @@ config = xLSTMBlockStackConfig(
 
         #slstm_at="all", # 在 xLSTM block stack 的所有層中都使用 sLSTM block。
                         # 所有層都用 sLSTMBlock（不使用 mLSTMBlock）。
-        context_length=336
+        context_length=1440,
     )
     
 
@@ -144,10 +144,10 @@ class xlstm(torch.nn.Module):
                                                                         # 目的是讓輸出資料能符合 xLSTMBlockStack 所要求的輸入維度格式。
                                                                         # 預設 n2 = 256
         
-        self.mm2= nn.Linear(config.embedding_dim, configs.target_points) # 線性轉換層，把 輸入維度：embedding_dim（例如 256） 轉換為 target_points（例如 96）。
+        self.mm2= nn.Linear(config.embedding_dim, configs.target_points) # 線性轉換層，把 輸入維度：embedding_dim（例如 256） 轉換為 target_points。
                                                                          # LSTM Block（xLSTMBlockStack）處理完後，輸出的是 embedding 表示，仍是 256 維的抽象空間。
                                                                          # 為了變回「實際的 target 預測數據」，需要從 embedding_dim 壓回 target_points。
-                                                                         # 把 xLSTM block 的輸出從 抽象 embedding 維度（如 256） → 具體預測維度（如 96 時點）。
+                                                                         # 把 xLSTM block 的輸出從 抽象 embedding 維度（如 256） → 具體預測維度。
         
         self.mm3= nn.Linear(configs.context_points,self.configs.n2) # 未實際使用。
 
@@ -185,7 +185,7 @@ class xlstm(torch.nn.Module):
         x = self.xlstm_stack(x) # 傳入 xLSTMBlockStack（核心 block），形狀為(batch_size, features, embedding_dim)
         # print(f'經過xLSTM特徵提取與時序建模: {x.shape} \n') # --用於研究
         
-        # 還原回 target_points （例如 96 點）
+        # 還原回 target_points
         x=self.mm2(x) # 輸出再經過 mm2()，轉為 target_points 長度，形狀為(batch_size, features, target_points)
         # print(f'mm2線性轉換: {x.shape} \n') # --用於研究
 
@@ -193,8 +193,8 @@ class xlstm(torch.nn.Module):
         # print(f'最終輸出形狀: {x.shape} \n') # --用於研究
         # print('\n', '-----'*10, '\n') # --用於研究
 
-    
-        return x # 最後輸出 x：形狀為 (batch_size, target_points, features)
+        x = x[..., -1:]  # 只取出最後一個特徵（fish_weight）
+        return x # 最後輸出 x：形狀為 (batch_size, target_points, fish_weight)
 
 '''
 features => 輸入資料的「特徵維度」。一筆序列中，每一個時間點（timestep）有幾個欄位或變數。
