@@ -54,8 +54,7 @@ from xlstm.xlstm_block_stack import xLSTMBlockStack, xLSTMBlockStackConfig
 from xlstm.blocks.mlstm.block import mLSTMBlockConfig
 from xlstm.blocks.slstm.block import sLSTMBlockConfig
 
-from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper, \
-    reduce_tensor
+from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper, reduce_tensor
 
 import argparse
 
@@ -63,26 +62,26 @@ parser = argparse.ArgumentParser() # 解析命令列參數（Command-line argume
 
 # TODO 【1】確實有用到的重要核心參數（✅代表有用到。）
 # training
-parser.add_argument('--is_train', type=int, default=0, help='training the model') # 控制是否訓練或測試。( 1: train, 0: test ) ✅
-parser.add_argument('--context_points', type=int, default=512, help='sequence length') # 輸入序列長度（如 336） ✅
-parser.add_argument('--target_points', type=int, default=96, help='forecast horizon') # 預測序列長度、預測步數（如 96） ✅
-parser.add_argument('--batch_size', type=int, default=64, help='batch size') # DataLoader批次大小，在 get_dls() 會用到。 ✅
+parser.add_argument('--is_train', type=int, default=0, help='training the model') # ✅ 控制是否訓練或測試。( 1: train, 0: test ) 
+parser.add_argument('--context_points', type=int, default=512, help='sequence length') # ✅ 輸入序列長度。 # * 1440 
+parser.add_argument('--target_points', type=int, default=96, help='forecast horizon') # ✅ 預測序列長度、預測步數。 # * 1
+parser.add_argument('--batch_size', type=int, default=656, help='batch size') # ✅ DataLoader批次大小，在 get_dls() 會用到。  # -- 64
 
-parser.add_argument('--dset', type=str, default='ettm1', help='dataset name') # 資料集名稱（如 ettm1） ✅
-parser.add_argument('--model_name2', type=str, default='xLSTMTime', help='model_name2') # 模型命名，在 args.save_model_name 會用到。 ✅
+parser.add_argument('--dset', type=str, default='ettm1', help='dataset name') # ✅ 資料集名稱（如 ettm1） 
+parser.add_argument('--model_name2', type=str, default='xLSTMTime', help='model_name2') # ✅ 模型命名，在 args.save_model_name 會用到。 
 
-parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # 模型版本號（便於存檔），在 args.save_model_name 會用到。
+parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # ✅ 模型版本號（便於存檔），在 args.save_model_name 會用到。
 # Optimization args
-parser.add_argument('--n_epochs', type=int, default=100, help='number of training epochs') # 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
-parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # 學習率（可被 find_lr() 覆蓋）
-parser.add_argument('--n2', type=int, default=256, help='Second Embedded representation') # 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 ✅
+parser.add_argument('--n_epochs', type=int, default=100, help='number of training epochs') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
+parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # ✅ 學習率（可被 find_lr() 覆蓋）
+parser.add_argument('--n2', type=int, default=256, help='Second Embedded representation') # ✅ 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 
 
-parser.add_argument('--use_time_features', type=int, default=1, help='whether to use time features or not') # 是否加入時間欄位特徵，用在 datautils.py。✅
-parser.add_argument('--features', type=str, default='M', help='for multivariate model or univariate model') # 特徵類型（M: multivariate 多變量、 S: Single單變量），用在 datautils.py。✅
+parser.add_argument('--use_time_features', type=int, default=0, help='whether to use time features or not') # ✅ 是否加入時間欄位特徵，用在 datautils.py。 # * 0, False
+parser.add_argument('--features', type=str, default='M', help='for multivariate model or univariate model') # ✅ 特徵類型（M: multivariate 多變量、 S: Single單變量），用在 datautils.py。
                                                                                                             # 單變量（S）=> 每筆資料只有一種特徵（只有一個欄位要預測）
                                                                                                             # 多變量（M）=> 每筆資料有多種特徵（同時觀察/預測多個欄位）
-                                                                                                            # NOTE MS -> 多變量預測單變量（multi→single）。
-parser.add_argument('--num_workers', type=int, default=1, help='number of workers for DataLoader') # DataLoader 多執行緒設定，用在 datautils.py。✅
+                                                                                                            # * NOTE MS -> 多變量預測單變量（multi→single）。
+parser.add_argument('--num_workers', type=int, default=1, help='number of workers for DataLoader') # ✅ DataLoader 多執行緒設定，用在 datautils.py。
 
 # TODO 【2】定義了但目前未被使用的參數（可能是保留、兼容或暫未實作）（❌代表未用到。）
 # 模型初始化
@@ -178,10 +177,10 @@ def find_lr():
     dls = get_dls(args) # 載入訓練資料。
     model = get_model(dls.vars, args)
 
-    # get loss
-    # Ex. loss_func = torch.nn.MSELoss(reduction='mean') 或 loss_func=combined_loss
-    loss_func = torch.nn.L1Loss(reduction='mean') # 主要 loss function 為 L1Loss，也可改成 MSELoss, HuberLoss, combined_loss。
-                                                  # L1Loss 也叫作 MAE（Mean Absolute Error）。
+    # get loss -> 做小型的「訓練」，計算 loss 曲線。
+    # Ex. loss_func=combined_loss
+    # -- loss_func = torch.nn.L1Loss(reduction='mean') # MAE（Mean Absolute Error）。
+    loss_func = torch.nn.MSELoss(reduction='mean') # MSE（Mean Square Error）。
     
     # get callbacks
     cbs = [RevInCB(dls.vars)] if args.revin else [] # 使用 callback 記錄訓練過程 
@@ -208,10 +207,10 @@ def train_func(lr=args.lr):
     model = get_model(dls.vars, args)
     #model = get_model(dls.vars, args, model_type)
 
-    # get loss
-    # Ex. loss_func = torch.nn.MSELoss(reduction='mean') 或 loss_func=combined_loss 或 loss_func = HuberLoss(delta = 0.25)
-    loss_func = torch.nn.L1Loss(reduction='mean') # 主要 loss function 為 L1Loss，也可改成 MSELoss, HuberLoss, combined_loss。
-                                                  # L1Loss 也叫作 MAE（Mean Absolute Error）。
+    # get loss -> 訓練過程中，模型要計算 loss 來更新權重（backpropagation），必須知道怎麼計算 loss！
+    # Ex. loss_func=combined_loss 或 loss_func = HuberLoss(delta = 0.25)
+    # -- loss_func = torch.nn.L1Loss(reduction='mean') # MAE（Mean Absolute Error）。
+    loss_func = torch.nn.MSELoss(reduction='mean') # MSE（Mean Square Error）。
 
     # get callbacks
     cbs = [RevInCB(dls.vars)] if args.revin else [] # 使用 callback 記錄訓練過程 
@@ -252,6 +251,7 @@ def test_func():
     #cbs += [PatchCB(patch_len=args.patch_len, stride=args.stride)] # Patch-based 時間序列切片
 
     learn = Learner(dls, model, cbs=cbs) # 第二階段：建立 Learner 實例。
+                                         # 測試時，只要載入訓練好的權重，做 forward 預測即可，不需要做 loss.backward() 或梯度更新，所以可以不指定 loss function。
     out = learn.test(dls.test, weight_path=weight_path, scores=[mse, mae])  # 第三階段：載入 .pth 權重
                                                                             # out: a list of [pred, targ, score_values]
                                                                             # preds: 模型預測出來的值。
