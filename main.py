@@ -63,11 +63,11 @@ parser = argparse.ArgumentParser() # 解析命令列參數（Command-line argume
 # TODO 【1】確實有用到的重要核心參數（✅代表有用到。）
 # training
 parser.add_argument('--is_train', type=int, default=0, help='training the model') # ✅ 控制是否訓練或測試。( 1: train, 0: test ) 
-parser.add_argument('--context_points', type=int, default=512, help='sequence length') # ✅ 輸入序列長度。 # * 1440 
-parser.add_argument('--target_points', type=int, default=96, help='forecast horizon') # ✅ 預測序列長度、預測步數。 # * 1
-parser.add_argument('--batch_size', type=int, default=656, help='batch size') # ✅ DataLoader批次大小，在 get_dls() 會用到。  # -- 64
+parser.add_argument('--context_points', type=int, default=1440, help='sequence length') # ✅ 輸入序列長度。 # * 1440 
+parser.add_argument('--target_points', type=int, default=1, help='forecast horizon') # ✅ 預測序列長度、預測步數。 # * 1
+parser.add_argument('--batch_size', type=int, default=128, help='batch size') # ✅ DataLoader批次大小，在 get_dls() 會用到。  # -- 64, 656
 
-parser.add_argument('--dset', type=str, default='ettm1', help='dataset name') # ✅ 資料集名稱（如 ettm1） 
+parser.add_argument('--dset', type=str, default='aquaponics', help='dataset name') # ✅ 資料集名稱（如 ettm1） 
 parser.add_argument('--model_name2', type=str, default='xLSTMTime', help='model_name2') # ✅ 模型命名，在 args.save_model_name 會用到。 
 
 parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # ✅ 模型版本號（便於存檔），在 args.save_model_name 會用到。
@@ -77,7 +77,7 @@ parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # �
 parser.add_argument('--n2', type=int, default=256, help='Second Embedded representation') # ✅ 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 
 
 parser.add_argument('--use_time_features', type=int, default=0, help='whether to use time features or not') # ✅ 是否加入時間欄位特徵，用在 datautils.py。 # * 0, False
-parser.add_argument('--features', type=str, default='M', help='for multivariate model or univariate model') # ✅ 特徵類型（M: multivariate 多變量、 S: Single單變量），用在 datautils.py。
+parser.add_argument('--features', type=str, default='MS', help='for multivariate model or univariate model') # ✅ 特徵類型（M: multivariate 多變量、 S: Single單變量），用在 datautils.py。
                                                                                                             # 單變量（S）=> 每筆資料只有一種特徵（只有一個欄位要預測）
                                                                                                             # 多變量（M）=> 每筆資料有多種特徵（同時觀察/預測多個欄位）
                                                                                                             # * NOTE MS -> 多變量預測單變量（multi→single）。
