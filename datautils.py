@@ -67,18 +67,34 @@ def get_dls(params):
 
 if __name__ == "__main__":
     class Params:
-        dset= 'etth2'
-        context_points= 384
-        target_points= 96
-        batch_size= 64
-        num_workers= 8
-        with_ray= False
-        features='M'
+        dset= 'aquaponics'
+        context_points= 1440
+        target_points= 1
+        batch_size= 128
+        num_workers= 2
+        features='MS'
     params = Params 
     dls = get_dls(params)
-    #for i, batch in enumerate(dls.valid):
-    #    print(i, len(batch), batch[0].shape, batch[1].shape)
-    #breakpoint()
+
+    print("\n===== DataLoader 特徵列表 =====")
+    if hasattr(dls, 'vars'):  # 有些時候 vars 可能不存在，要防呆
+        print(f"特徵欄位數量 (vars): {dls.vars}") # EX. 特徵欄位數量 (vars): 6
+    else:
+        print("找不到 dls.vars，請檢查 DataLoader 設定")
+    
+    # 測試看看一個 batch
+    print("\n===== Batch 資料內容 =====")
+    for i, batch in enumerate(dls.valid): # # 測試 valid 資料，用 enumerate 遍歷 valid dataloader。
+       print(f"\n第 {i} 個 batch")
+       print(f"  - batch 包含 {len(batch)} 個元素")
+       print(f"  - seq_x 形狀: {batch[0].shape}")
+       print(f"  - seq_y 形狀: {batch[1].shape}")
+       
+       if len(batch) == 4:
+        print(f"  - seq_x_mark 形狀: {batch[2].shape}")
+        print(f"  - seq_y_mark 形狀: {batch[3].shape}")
+        # print(i, len(batch), batch[0].shape, batch[1].shape) # 印出 batch 編號、batch 內元素個數、seq_x 和 seq_y 的 shape
+        # breakpoint() # break  # 只看第一個 batch
 
 
 """
