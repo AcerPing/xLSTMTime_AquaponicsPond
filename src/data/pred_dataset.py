@@ -4,7 +4,7 @@ import pandas as pd
 import os
 import torch
 from torch.utils.data import Dataset, DataLoader
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from src.data.timefeatures import time_features
 import warnings
@@ -14,9 +14,8 @@ warnings.filterwarnings('ignore')
 # 【1】 Dataset_ETT_hour
 # 【2】 Dataset_ETT_minute
 # 【3】 Dataset_Custom
-# 【4】 Dataset_PEMS
-# 【5】 Dataset_Solar
-# 【6】 Dataset_Pred
+# 【4】 Dataset_Pred
+# 【5】 Dataset_Aquaponics
 
 # todo 【1】 Dataset_ETT_hour
 class Dataset_ETT_hour(Dataset):
@@ -242,8 +241,8 @@ class Dataset_Custom(Dataset):
                  target='OT', scale=True, timeenc=0, freq='h',
                  time_col_name='date', use_time_features=False, 
                  train_split=0.7, test_split=0.2
-                 ):
-        """"
+                 ): # target='OT' 是 ETT-small 資料集（如 ETTh1.csv、ETTm1.csv）裡面的一個欄位名稱。
+        """
         Dataset_Custom 是「針對訓練用」的 Dataset，讀入 CSV 資料，分成 train/val/test，標準化後，取出 (context, label, target) 三段資料，支援加時間特徵。
         -- root_path: 資料的根目錄。
         -- split: 是要用來 train / val / test 的哪一部分。
@@ -356,206 +355,13 @@ class Dataset_Custom(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
 
-    
-# ---------------------------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------------
-
-
-# todo 【4】 Dataset_PEMS
-class Dataset_PEMS(Dataset):
-    def __init__(self, root_path, split='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h',
-                 time_col_name='date', use_time_features=False, 
-                 train_split=0.6, test_split=0.2):
-        if size is None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-
-        assert split in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[split]
-
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
-        self.time_col_name = time_col_name
-        self.use_time_features = use_time_features
-
-        self.train_split, self.test_split = train_split, test_split
-
-        self.root_path = root_path
-        self.data_path = data_path
-        self.__read_data__()
-
-    def __read_data__(self):
-        self.scaler = StandardScaler()
-        data_file = os.path.join(self.root_path, self.data_path)
-        
-        data = np.load(data_file, allow_pickle=True)
-        print(f"Data structure: {type(data)}, keys: {data.keys() if isinstance(data, np.lib.npyio.NpzFile) else 'N/A'}")
-        
-        if isinstance(data, np.lib.npyio.NpzFile):
-            if 'data' in data:
-                data = data['data']
-            else:
-                raise ValueError("The loaded npz file does not contain a 'data' key.")
-        else:
-            raise ValueError("The loaded file is not an npz file.")
-        
-        if data.ndim == 3:
-            data = data[:, :, 0]
-        else:
-            raise ValueError("The data array is not 3D.")
-
-        train_ratio = self.train_split
-        valid_ratio = 1 - self.train_split - self.test_split
-        train_data = data[:int(train_ratio * len(data))]
-        valid_data = data[int(train_ratio * len(data)): int((train_ratio + valid_ratio) * len(data))]
-        test_data = data[int((train_ratio + valid_ratio) * len(data)):]
-        total_data = [train_data, valid_data, test_data]
-        data = total_data[self.set_type]
-
-        if self.scale:
-            self.scaler.fit(train_data)
-            data = self.scaler.transform(data)
-
-        df = pd.DataFrame(data)
-        df = df.fillna(method='ffill', limit=len(df)).fillna(method='bfill', limit=len(df)).values
-
-        self.data_x = df.astype(np.float32)  # Ensure the data type is float32
-        self.data_y = df.astype(np.float32)  # Ensure the data type is float32
-
-    def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = torch.zeros((seq_x.shape[0], 1), dtype=torch.float32)  # Ensure the data type is float32
-        seq_y_mark = torch.zeros((seq_y.shape[0], 1), dtype=torch.float32)  # Ensure the data type is float32
-
-        if self.use_time_features: 
-            return seq_x, seq_y, seq_x_mark, seq_y_mark
-        else: 
-            return seq_x, seq_y
-
-    def __len__(self):
-        return len(self.data_x) - self.seq_len - self.pred_len + 1
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
-
 
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
 
 
-# todo 【5】 Dataset_Solar
-class Dataset_Solar(Dataset):
-    def __init__(self, root_path, split='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h',
-                 time_col_name='date', use_time_features=False, 
-                 train_split=0.7, test_split=0.2):
-        # size [seq_len, label_len, pred_len]
-        if size is None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-        # init
-        assert split in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[split]
-
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
-        self.time_col_name = time_col_name
-        self.use_time_features = use_time_features
-
-        # train test ratio
-        self.train_split, self.test_split = train_split, test_split
-
-        self.root_path = root_path
-        self.data_path = data_path
-        self.__read_data__()
-
-    def __read_data__(self):
-        self.scaler = StandardScaler()
-        df_raw = []
-        with open(os.path.join(self.root_path, self.data_path), "r", encoding='utf-8') as f:
-            for line in f.readlines():
-                line = line.strip('\n').split(',')
-                data_line = np.stack([float(i) for i in line])
-                df_raw.append(data_line)
-        df_raw = np.stack(df_raw, 0)
-        df_raw = pd.DataFrame(df_raw)
-
-        num_train = int(len(df_raw) * self.train_split)
-        num_test = int(len(df_raw) * self.test_split)
-        num_valid = len(df_raw) - num_train - num_test
-        border1s = [0, num_train - self.seq_len, len(df_raw) - num_test - self.seq_len]
-        border2s = [num_train, num_train + num_valid, len(df_raw)]
-        border1 = border1s[self.set_type]
-        border2 = border2s[self.set_type]
-
-        df_data = df_raw.values
-
-        if self.scale:
-            train_data = df_data[border1s[0]:border2s[0]]
-            self.scaler.fit(train_data)
-            data = self.scaler.transform(df_data)
-        else:
-            data = df_data
-
-        self.data_x = data[border1:border2]
-        self.data_y = data[border1:border2]
-
-    def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = torch.zeros((seq_x.shape[0], 1))
-        seq_y_mark = torch.zeros((seq_y.shape[0], 1))
-
-        if self.use_time_features: return seq_x, seq_y, seq_x_mark, seq_y_mark
-        else: return seq_x, seq_y
-
-    def __len__(self):
-        return len(self.data_x) - self.seq_len - self.pred_len + 1
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
-
-
-# ---------------------------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------------
-
-
-# todo 【6】 Dataset_Pred -> 「只預測未來」的推論，例如只有輸入，不給真實答案。
+# todo 【4】 Dataset_Pred -> 「只預測未來」的推論，例如只有輸入，不給真實答案。
 class Dataset_Pred(Dataset):
     def __init__(self, root_path, split='pred', size=None,
                  features='S', data_path='ETTh1.csv',
@@ -665,6 +471,159 @@ class Dataset_Pred(Dataset):
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
+
+
+# todo 【5】 Dataset_Aquaponics ★★★★★
+class Dataset_Aquaponics (Dataset):
+    def __init__(self, root_path, split='train', size=None,
+                 features='MS', data_path='cleaned_IoTPond2.csv',
+                 target='fish_weight', scale=True, timeenc=0, freq='T',
+                 time_col_name='created_at', use_time_features=False, 
+                 train_split=0.7, test_split=0.2
+                 ):
+        """
+        Dataset_Custom 是「針對訓練用」的 Dataset，讀入 CSV 資料，分成 train/val/test，標準化後，取出 (context, label, target) 三段資料，支援加時間特徵。
+        -- root_path: 資料的根目錄。
+        -- split: 是要用來 train / val / test 的哪一部分。
+        -- size: 輸入序列長度 (seq_len)、標籤長度 (label_len)、預測長度 (pred_len)。
+        -- features: 特徵模式（單變量 'S' 或多變量 'M' / 'MS'）。
+        -- data_path: 資料檔名。
+        -- scale: 是否要標準化。
+        -- timeenc: 時間特徵編碼方式 (0: 手動拆解年月日, 1: 頻率編碼）。
+        -- freq: 時間資料的頻率（如 'h'：小時級資料）。
+        -- time_col_name: 時間欄位名稱（預設是 'date'）。
+        -- use_time_features: 是否使用時間特徵。
+        -- train_split、test_split: 設定訓練集、測試集比例（剩下是驗證集）。 Ex. 70%訓練模型、 20%驗證模型、剩下的 10% Validation。
+        """
+        # size [seq_len, label_len, pred_len]
+        self.seq_len = size[0] # 模型輸入長度（context），預設1440。
+        self.label_len = size[1] # 0
+        self.pred_len = size[2] # 要預測的未來時間步，預設1。
+
+        # init
+        assert split in ['train', 'test', 'val'] # 檢查條件是否成立。如果 split 的值不是 'train'、'test' 或 'val'，就會丟出錯誤。
+                                                 #  split 是告訴 Dataset：這次你要給我哪一部分的資料！
+        type_map = {'train': 0, 'val': 1, 'test': 2} # 切資料區段：train/val/test
+        self.set_type = type_map[split] # 0
+
+        self.features = features
+        self.target = target
+        self.scale = scale
+        self.timeenc = timeenc
+        self.freq = freq
+        self.time_col_name = time_col_name
+        self.use_time_features = use_time_features
+
+        # train test ratio
+        self.train_split, self.test_split = train_split, test_split
+
+        self.root_path = root_path
+        self.data_path = data_path
+        self.__read_data__()
+
+    def __read_data__(self): # 讀資料！
+
+        df_raw = pd.read_csv(os.path.join(self.root_path, self.data_path)) # 讀取 .csv 檔案。
+        cols = list(df_raw.columns) #  df_raw.columns: [time_col_name, ...(other features), target feature]
+        #cols.remove(self.target) if self.target
+        #cols.remove(self.time_col_name)
+        #df_raw = df_raw[[self.time_col_name] + cols + [self.target]]
+        
+        # 依據比例劃分，train、val、test 用 train_split、test_split 依比例切開。
+        num_train = int(len(df_raw) * self.train_split) # train資料筆數
+        num_test = int(len(df_raw) * self.test_split) # test資料筆數
+        num_valid = len(df_raw) - num_train - num_test # valid資料筆數
+        # 定義每個 split 的「起點」索引
+        border1s = [0, 
+                    num_train - self.seq_len, 
+                    len(df_raw) - num_test - self.seq_len] 
+        # 定義每個 split 的「終點」索引
+        border2s = [num_train, 
+                    num_train + num_valid, 
+                    len(df_raw)]
+        # 根據 split('train'/'val'/'test')選出起點
+        border1 = border1s[self.set_type]
+        # 根據 split('train'/'val'/'test')選出終點
+        border2 = border2s[self.set_type]
+
+        # 根據 features 參數：'S'：只選 target 欄位（單變量）、'M' 或 'MS'多欄位特徵。
+        # // if self.features == 'M':
+        #     // cols_data = df_raw.columns[1:]
+        #     // df_data = df_raw[cols_data]
+        # // elif self.features == 'S':
+        #     // df_data = df_raw[[self.target]] # 只有 target 特徵。        
+        assert self.features == 'MS', f"features 必須是 'MS'，但收到的是 {self.features}"
+        # 取 feature columns 與 target column
+        feature_cols = [col for col in df_raw.columns if col not in [self.time_col_name, self.target]] # 時間欄位不是feature，所以一併排除； target是要被預測的，也排除。
+        df_data_x = df_raw[feature_cols]
+        df_data_y = df_raw[[self.target]] # target單獨取出，target = 'fish_weight'。
+
+        # 標準化（只對訓練集資料 fit，後續所有資料 transform）。
+        assert self.scale, f"scale 必須是 True，但收到的是 {self.scale}" # // if self.scale: # // else: data = df_data.values # 不標準化，直接使用原始資料
+        # todo: 初始化 scaler 
+        self.feature_scaler = MinMaxScaler()
+        self.target_scaler = MinMaxScaler() 
+        # todo: 整份資料直接 fit_transform（train+val+test一起 fit，不區分） -> 讓 feature 和 target 都統一在完整資料範圍內做縮放（不是只依靠train區段）。
+        data_x = self.feature_scaler.fit_transform(df_data_x.values)
+        data_y = self.target_scaler.fit_transform(df_data_y.values)
+        # todo: 根據 split 分成 train/val/test
+        self.data_x = data_x[border1:border2]  # 標準化後的特徵資料。
+        self.data_y = data_y[border1:border2]  # 標準化後的目標資料。        
+
+
+        # TODO: 處理時間欄位（self.data_stamp）
+        # always convert created_at to datetime (基本動作)
+        df_stamp = df_raw[[self.time_col_name]][border1:border2]
+        df_stamp[self.time_col_name] = pd.to_datetime(df_stamp[self.time_col_name])
+        # 根據 use_time_features 決定要不要處理
+        if self.use_time_features:
+            if self.timeenc == 0: # 拆成 month/day/weekday/hour。
+                df_stamp['month'] = df_stamp[self.time_col_name].apply(lambda row: row.month, 1)
+                df_stamp['day'] = df_stamp[self.time_col_name].apply(lambda row: row.day, 1)
+                df_stamp['weekday'] = df_stamp[self.time_col_name].apply(lambda row: row.weekday(), 1)
+                df_stamp['hour'] = df_stamp[self.time_col_name].apply(lambda row: row.hour, 1)
+                data_stamp = df_stamp.drop([self.time_col_name], axis=1).values
+            elif self.timeenc == 1: # 使用內建的 time_features() 轉換。
+                data_stamp = time_features(pd.to_datetime(df_stamp[self.time_col_name].values), freq=self.freq)
+                data_stamp = data_stamp.transpose(1, 0)
+        else:
+            # 不使用時間特徵，data_stamp設空
+            data_stamp = None
+
+        self.data_stamp = data_stamp # 時間特徵資料。
+
+    def __getitem__(self, index): # 取出一組訓練資料，每次回傳一個 sample（通常是訓練一個 batch 裡的一個）。
+        s_begin = index
+        s_end = s_begin + self.seq_len
+        r_begin = s_end - self.label_len
+        r_end = r_begin + self.label_len + self.pred_len
+
+        seq_x = self.data_x[s_begin:s_end] # 輸入資料（input sequence）
+        seq_y = self.data_y[r_begin:r_end] # 預測目標（target sequence）
+
+
+        if self.use_time_features: 
+            seq_x_mark = self.data_stamp[s_begin:s_end] # 對應的時間特徵（如果啟用 use_time_features）
+            seq_y_mark = self.data_stamp[r_begin:r_end] # 對應的時間特徵（如果啟用 use_time_features）
+            return _torch(seq_x, seq_y, seq_x_mark, seq_y_mark) # 額外回傳時間特徵（seq_x_mark、seq_y_mark）。
+        else: return _torch(seq_x, seq_y)
+
+    def __len__(self): # 定義 Dataset 長度，確保切 patch 時，不會超出資料邊界。
+        return len(self.data_x) - self.seq_len - self.pred_len + 1
+
+
+    def inverse_transform_y(self, data):
+        """
+        還原目標(Fish Weight)的標準化資料
+        """
+        return self.target_scaler.inverse_transform(data)
+
+
+    def inverse_transform_x(self, data):
+        """
+        還原特徵（環境感測器資料，如水溫、pH、溶氧）的標準化資料
+        """
+        return self.feature_scaler.inverse_transform(data)
 
 
 def _torch(*dfs):
