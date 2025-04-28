@@ -105,12 +105,12 @@ parser.add_argument('--cfg', type=str, required=False, metavar="FILE", help='pat
 parser.add_argument("--opts", help="Modify config options by adding 'KEY VALUE' pairs. ", default=None, nargs='+') # ❌
 # 可能在多模型版本中有用，但目前 xlstm 還沒切換架構
 parser.add_argument('--model_type', type=str, default='based_model', help='for multivariate model or univariate model') # 多架構選擇時可用，目前僅支援 xLSTM。 ❌
-parser.add_argument('--scaler', type=str, default='standard', help='scale the input data') # 特徵標準化方法，未用到。❌
 parser.add_argument('--ch_ind', type=int, default=1, help='Channel Independence; True 1 False 0') # 是否讓每個通道（feature）獨立建模，而不是共享參數或進行聯合建模。 #可能是為 Mamba 模型預留的❌
 
 # TODO 【3】取決於是否啟用某些功能的參數
 parser.add_argument('--revin', type=int, default=1, help='reversible instance normalization') # 啟用 RevIN（可逆標準化），在 RevInCB 有用到。 # cbs = [RevInCB(dls.vars)] if args.revin else []
                                                                                               # RevIN（Reversible Instance Normalization）可逆標準化技術 => 讓模型在統一的數值世界裡學習，學完再把預測翻譯回原本的語言。
+parser.add_argument('--scaler', type=str, default='minmax', help='scale the input data') # 特徵標準化方法。
 # Patch 時間補丁設定（用在 PatchCB），用在部分 callback 或未啟用。
 # patch補丁：把一整段長時間序列，切成一小段一小段的區塊（時間片段）來處理。
 parser.add_argument('--patch_len', type=int, default=12, help='patch length') # 每段看多長。 目前未啟用 PatchCB。❌
@@ -274,7 +274,6 @@ def plot_feature_actual_vs_predicted(actual, predicted, feature_idx):
 
     if isinstance(actual, torch.Tensor):
         actual = actual.cpu().numpy()
-
     if isinstance(predicted, torch.Tensor):
         predicted = predicted.cpu().numpy()
 
