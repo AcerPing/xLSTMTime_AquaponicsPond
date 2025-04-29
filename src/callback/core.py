@@ -1,112 +1,4 @@
 
-# __all__ = ['Callback', 'SetupLearnerCB', 'GetPredictionsCB', 'GetTestCB' ]
-
-
-# """ 
-# Callback lists:
-#     > before_fit
-#         - before_epoch
-#             + before_epoch_train                
-#                 ~ before_batch_train
-#                 ~ after_batch_train                
-#             + after_epoch_train
-
-#             + before_epoch_valid                
-#                 ~ before_batch_valid
-#                 ~ after_batch_valid                
-#             + after_epoch_valid
-#         - after_epoch
-#     > after_fit
-
-#     - before_predict        
-#         ~ before_batch_predict
-#         ~ after_batch_predict          
-#     - after_predict
-
-# """
-
-# from ..basics import *
-# import torch
-
-# DTYPE = torch.float32
-
-# class Callback(GetAttr): 
-#     _default='learner'
-
-
-# class SetupLearnerCB(Callback): 
-#     def __init__(self):        
-#         self.device = default_device(use_cuda=True)
-
-#     def before_batch_train(self): self._to_device()
-#     def before_batch_valid(self): self._to_device()
-#     def before_batch_predict(self): self._to_device()
-#     def before_batch_test(self): self._to_device()
-
-#     def _to_device(self):
-#         batch = to_device(self.batch, self.device)        
-#         if self.n_inp > 1: xb, yb = batch
-#         else: xb, yb = batch, None        
-#         self.learner.batch = xb, yb
-        
-#     def before_fit(self): 
-#         "Set model to cuda before training"                
-#         self.learner.model.to(self.device)
-#         self.learner.device = self.device                        
-
-
-# class GetPredictionsCB(Callback):
-#     def __init__(self):
-#         super().__init__()
-
-#     def before_predict(self):
-#         self.preds = []        
-    
-#     def after_batch_predict(self):        
-#         # append the prediction after each forward batch           
-#         self.preds.append(self.pred)
-
-#     def after_predict(self):           
-#         self.preds = torch.concat(self.preds)#.detach().cpu().numpy()
-
-         
-
-# class GetTestCB(Callback):
-#     def __init__(self):
-#         super().__init__()
-
-#     def before_test(self):
-#         self.preds, self.targets = [], []        
-    
-#     def after_batch_test(self):        
-#         # append the prediction after each forward batch           
-#         self.preds.append(self.pred)
-#         self.targets.append(self.yb)
-
-#     def after_test(self):           
-#         self.preds = torch.concat(self.preds)#.detach().cpu().numpy()
-#         self.targets = torch.concat(self.targets)#.detach().cpu().numpy()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 __all__ = ['Callback', 'SetupLearnerCB', 'GetPredictionsCB', 'GetTestCB']
 
 """
@@ -149,18 +41,6 @@ class SetupLearnerCB(Callback):
     def before_batch_predict(self): self._to_device()
     def before_batch_test(self): self._to_device()
 
-    # def _to_device(self):
-    #     batch = to_device(self.batch, self.device)
-    #     print(f"Batch content before unpacking: {batch}")  # Debug statement
-    #     try:
-    #         if self.n_inp > 1:
-    #             xb, yb = batch
-    #         else:
-    #             xb, yb = batch, None
-    #     except ValueError as e:
-    #         print(f"Error unpacking batch: {e}")
-    #         raise e
-    #     self.learner.batch = xb, yb
     def _to_device(self):
         batch = to_device(self.batch, self.device)
         #print(f"Batch content before unpacking: {batch}")  # Debug statement
@@ -200,17 +80,24 @@ class GetPredictionsCB(Callback):
          
 
 class GetTestCB(Callback):
+    """
+    test時收集結果的 callback
+    """
     def __init__(self):
-        super().__init__()
+        super().__init__() # 繼承自 Callback 父類別，標準初始化，沒有特別設定。
 
     def before_test(self):
-        self.preds, self.targets = [], []        
+        self.preds, self.targets = [], [] # 建立空的 preds, targets
+                                          # self.preds ➔ 用來收集每個 batch 的 預測值 pred；
+                                          # self.targets ➔ 用來收集每個 batch 的 真實答案 target (yb)
     
     def after_batch_test(self):        
-        # append the prediction after each forward batch           
+        # append the prediction after each forward batch
+        # 每跑完一個 batch 測試後，把當前 batch 的預測結果 (self.pred) 與 真實答案 (self.yb) 分別 append 加進 list 裡！
         self.preds.append(self.pred)
         self.targets.append(self.yb)
 
-    def after_test(self):           
+    def after_test(self):
+        # 整個測試結束後， 把累積在 list 裡的 所有 batch 的 preds、targets，用 torch.concat 接成一個大 tensor！
         self.preds = torch.concat(self.preds)#.detach().cpu().numpy()
         self.targets = torch.concat(self.targets)#.detach().cpu().numpy()
