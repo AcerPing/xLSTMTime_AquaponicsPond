@@ -113,16 +113,14 @@ parser.add_argument('--revin', type=int, default=1, help='reversible instance no
 parser.add_argument('--scaler', type=str, default='minmax', help='scale the input data') # 特徵標準化方法。
 # Patch 時間補丁設定（用在 PatchCB），用在部分 callback 或未啟用。
 # patch補丁：把一整段長時間序列，切成一小段一小段的區塊（時間片段）來處理。
-parser.add_argument('--patch_len', type=int, default=12, help='patch length') # 每段看多長。 目前未啟用 PatchCB。❌
-parser.add_argument('--stride', type=int, default=12, help='stride between patch') # 每次滑動多少秒 目前未啟用 PatchCB。 ❌
+# -- parser.add_argument('--patch_len', type=int, default=12, help='patch length') # 每段看多長。 目前未啟用 PatchCB。❌
+# -- parser.add_argument('--stride', type=int, default=12, help='stride between patch') # 每次滑動多少秒 目前未啟用 PatchCB。 ❌
 
 args = parser.parse_args()
 print('args:', args)
 
-# 設定儲存模型的名稱與路徑
-args.save_model_name = str(args.model_name2) + '_cw' + str(args.context_points) + '_tw' + str(
-    args.target_points) + '_patch' + str(args.patch_len) + '_stride' + str(args.stride) + '_epochs' + str(
-    args.n_epochs) + '_model' + str(args.model_id) # 模型名稱
+# 設定儲存模型的名稱與路徑 # !!! 需要修改檔名命名方式
+args.save_model_name = f"{args.model_name2}_cw{args.context_points}_tw{args.target_points}_epochs{args.n_epochs}_model{args.model_id}" # 模型名稱
 args.save_path = 'saved_models/' + args.dset  # 儲存模型位置路徑
 if not os.path.exists(args.save_path): os.makedirs(args.save_path) # 建立資料夾
 
@@ -258,7 +256,8 @@ def test_func():
                                                                             # targs = target（也就是 "ground truth"），測試資料中的「實際答案」。
                                                                             # scores: 評估結果，例如 MSE 和 MAE。
                                                                             
-    return out
+    return out 
+    # dls.test.dataset # 〔備用〕如果需要還原實際值
 
 
 def plot_feature_actual_vs_predicted(actual, predicted, feature_idx):
