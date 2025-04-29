@@ -271,28 +271,38 @@ def plot_feature_actual_vs_predicted(actual, predicted, feature_idx):
     - feature_idx (int): Index of the feature to plot. 特徵索引
     """
 
+    # 如果是 tensor，先轉成 numpy
     if isinstance(actual, torch.Tensor):
         actual = actual.cpu().numpy()
     if isinstance(predicted, torch.Tensor):
         predicted = predicted.cpu().numpy()
+    
+    # 【1】 Flatten (batch_size, 1, 1) → (batch_size,)
+    actual_flat = actual.reshape(-1)
+    predicted_flat = predicted.reshape(-1)
 
-    # todo: Select the first sequence for the given feature index （畫第 0 筆資料中，第 feature_idx 個特徵的所有時間點。）
+    # 【2】 Select the first sequence for the given feature index （畫第 0 筆資料中，第 feature_idx 個特徵的所有時間點。）
     # 取出三維張量中特定序列與特徵的預測結果。假設資料維度為 actual.shape = (batch_size, target_points, num_features) 
     # 舉例：actual.shape = (64, 96, 7)，有 64 條不同序列、每條序列預測 96 個時間點、每個時間點包含 7 個特徵。
-    actual_feature = actual[0, :, feature_idx] # 選擇第 1 條序列（通常我們只拿來視覺化其中一筆），取出這筆序列的 所有時間步（96 個點），取出指定的某個特徵。
-    predicted_feature = predicted[0, :, feature_idx] # 畫第 0 筆資料中，第 feature_idx 個特徵的所有時間點。
+    # actual_feature = actual[0, :, feature_idx] # 選擇第 1 條序列（通常我們只拿來視覺化其中一筆），取出這筆序列的 所有時間步（96 個點），取出指定的某個特徵。
+    # predicted_feature = predicted[0, :, feature_idx] # 畫第 0 筆資料中，第 feature_idx 個特徵的所有時間點。
 
-    # todo: 對「所有 batch 的同一個特徵」在每個時間點上進行平均，表示「平均趨勢線」，得到「這個特徵的整體預測趨勢 vs 真實趨勢」。
+    # 【3】 對「所有 batch 的同一個特徵」在每個時間點上進行平均，表示「平均趨勢線」，得到「這個特徵的整體預測趨勢 vs 真實趨勢」。
     #actual_feature = np.mean(actual[: , : ,feature_idx ], axis=0 )
     #predicted_feature = np.mean(predicted[: , : ,feature_idx ], axis=0)
 
-    # Plot the first sequence
+    # 繪圖 Plot the first sequence
     plt.figure(figsize=(10, 6))
-    plt.plot(actual_feature, label="Actual", color='blue')
-    plt.plot(predicted_feature, label="Predicted", color='red', linestyle='--')
-    plt.title(f"Actual vs Predicted for Feature {feature_idx}, Sequence 0")
+    plt.plot(range(len(actual_flat)), actual_flat, label="Actual (Ground Truth)", color='blue', marker='o', markersize=2, linestyle='-') # plt.plot(actual_feature, label="Actual", color='blue')
+
+    # ! plt.plot(range(len(predicted_flat)), predicted_flat, label="Predicted", color='red', marker='x', markersize=2, linestyle='--') # plt.plot(predicted_feature, label="Predicted", color='red', linestyle='--')
+    
+    plt.title(f"Actual vs Predicted Fish Weight (All Test Data)")
+    plt.xlabel("Sample Index")
+    plt.ylabel("Fish Weight")
     plt.legend()
-    plt.grid(True)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
     plt.show()
 
 
