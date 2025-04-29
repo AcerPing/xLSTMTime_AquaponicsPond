@@ -338,12 +338,19 @@ if __name__ == '__main__':
         train_func(suggested_lr) # 執行訓練
 
     else:  # testing mode 執行測試與可視化
+        # 1.) 呼叫 test_func()，得到 out = [pred, targ, score_values]。
+        # 2.) 針對每個 feature_idx，使用 plot_feature_actual_vs_predicted() 畫出 pred vs targ 曲線。
 
-        out = test_func()
-        print('score:', out[2])
-        print('shape:', out[0].shape)
+        out = test_func() # out: a list of [pred, targ, score_values]
+        print('score:', out[2]) # MSE和MAE的評估結果。
+        print('pred.shape:', out[0].shape) # 模型預測出來的值。
+        print('targ.shape:', out[1].shape) # targ = target（也就是 "ground truth"），測試資料中的「實際答案」。
 
-        for feature_idx in range(7):  # Assuming there are 7 features
-            plot_feature_actual_vs_predicted(out[1], out[0], feature_idx) # out: a list of [pred, targ, score_values]
+        # 〔備用〕如果需要還原 pred 和 targ（注意要用 target_scaler）。dataset從test_func()取得。
+        # pred = dataset.target_scaler.inverse_transform(out[0].reshape(-1, 1)).reshape(out[0].shape) # 模型預測出來的值。
+        # targ = dataset.target_scaler.inverse_transform(out[1].reshape(-1, 1)).reshape(out[1].shape) # 正確答案（真實的 fish_weight）
+
+        # 預測只要針對 fish_weight 進行畫圖
+        plot_feature_actual_vs_predicted(actual=out[1], predicted=out[0], feature_idx=0) 
 
     print('----------- Complete! -----------')
