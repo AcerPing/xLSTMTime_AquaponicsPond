@@ -266,27 +266,38 @@ class Learner(GetAttr):
         return to_numpy(self.preds) 
    
     
-    def test(self, dl, weight_path=None, scores=None): # 測試流程
-        """_summary_
+    def test(self, dl, weight_path=None, scores=None): 
+        """
+        _summary_
         Args:
             test_data can be a tensor, numpy array, dataset or dataloader
         Returns:
             _type_: _description_
+        
+        測試流程，訓練完後，專門用來「載入權重、做推論、收集預測與真實值」的流程。
+        讀進test資料 ➔ 預測 ➔ 收集預測與真實值 ➔（選擇性）計算分數 ➔ 回傳。
         """          
-        if dl is None: return
+        # 載入 dataloader & 權重 -> 讀進資料、套上訓練好的模型。
+        if dl is None: return # 是否載入資料集
         else: self.dl = dl
-        if weight_path is not None: self.load(weight_path)
-        cb = GetTestCB()
+        if weight_path is not None: self.load(weight_path) # 如果提供了模型權重（.pth檔），就載入這個權重。
+        
+        # 預測所有 test 資料 -> 預測每個 batch，收集結果
+        cb = GetTestCB() # 建立一個測試用的Callback，這個 Callback 會自動在測試時，把每個 batch 的預測(preds) 和 每個 batch 的正確答案(targets) 存起來！
         self.add_callback(cb)
-        self('before_test')
-        self.model.eval()
-        with torch.no_grad(): self.all_batches('test')
-        self('after_test')   
-        self.preds, self.targets = to_numpy([cb.preds, cb.targets])
-        # calculate scores
-        if scores: 
-            s_vals = [score(cb.targets, cb.preds).to('cpu').numpy() for score in list(scores)]
-            return self.preds, self.targets, s_vals
+        self('before_test') # 執行所有在 "before_test" 時應該觸發的 callbacks，可以想成是「測試開始前」的觸發點。
+        self.model.eval() # 把模型切到 evaluation 模式（eval()）。
+        with torch.no_grad(): # 用 torch.no_grad() 禁止梯度計算
+            self.all_batches('test')
+        self('after_test') # 測試結束後，執行所有 "after_test" callbacks。
+        
+        # 收集 pred & target -> 統一存起來，轉成 numpy
+        self.preds, self.targets = to_numpy([cb.preds, cb.targets]) # 轉成 numpy 格式
+        
+        # calculate scores 計算分數
+        if scores: # 如果有提供 scores（像是 MSE、MAE函數列表）
+            s_vals = [score(cb.targets, cb.preds).to('cpu').numpy() for score in list(scores)] # 計算每個指標
+            return self.preds, self.targets, s_vals # * 回傳：預測值、真實值、評分值
         else: return self.preds, self.targets
 
 
