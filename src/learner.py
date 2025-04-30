@@ -75,12 +75,19 @@ class Learner(GetAttr):
         self('init_cb')       
 
 
-    def add_callback(self, cb):                
+    def add_callback(self, cb):
+        """
+        加單一個 callback, 把單一個 callback (cb) 加進目前 Learner 的 self.cbs 列表裡，
+        這樣 callback 就可以存取 Learner 裡的資料,例如模型、dataloader、參數等!
+        """
         if not cb: return
-        cb.learner = self
+        cb.learner = self # 把 Learner 指標傳進 callback (cb.learner = self)
         self.cbs = update_callback(cb, self.cbs)           
 
-    def add_callbacks(self, cbs):        
+    def add_callbacks(self, cbs):
+        """
+        〔批次版〕可以一次加好幾個 callback,會自動把不是 list 的包成 list 處理。
+        """
         if not isinstance(cbs, list):  cbs = [cbs]
         for cb in cbs: self.add_callback(cb)
 
@@ -285,10 +292,10 @@ class Learner(GetAttr):
         # 預測所有 test 資料 -> 預測每個 batch，收集結果
         cb = GetTestCB() # 建立一個測試用的Callback，這個 Callback 會自動在測試時，把每個 batch 的預測(preds) 和 每個 batch 的正確答案(targets) 存起來！
         self.add_callback(cb)
-        self('before_test') # 執行所有在 "before_test" 時應該觸發的 callbacks，可以想成是「測試開始前」的觸發點。
+        self('before_test') # 執行所有在 "before_test" 時應該觸發的 callbacks，可以想成是「測試開始前」的觸發點。 # * 這其實是在呼叫 Learner 類別的 __call__ 方法！ 觸發 GetTestCB.before_test()。
         self.model.eval() # 把模型切到 evaluation 模式（eval()）。
         with torch.no_grad(): # 用 torch.no_grad() 禁止梯度計算
-            self.all_batches('test')
+            self.all_batches('test') # 處理完整個資料集（dataloader）所有 batch，並且對每個 batch 做forward 預測、收集結果的流程！
         self('after_test') # 測試結束後，執行所有 "after_test" callbacks。
         
         # 收集 pred & target -> 統一存起來，轉成 numpy
@@ -395,10 +402,10 @@ class Learner(GetAttr):
         for param in get_model(self.model).parameters(): param.requires_grad = True        
 
 
-    def __call__(self, name):        
-        for cb in self.cbs: 
+    def __call__(self, name): # 傳進來一個字串，例如 'before_test'
+        for cb in self.cbs: # 遍歷所有 callback (self.cbs)
             attr = getattr(cb, name)
-            if attr is not None: attr()
+            if attr is not None: attr() # 如果某個 callback 有一個叫做 'before_test' 的方法，就去呼叫那個方法！
           
 
     def save(self, fname, path, **kwargs):
@@ -507,9 +514,12 @@ def transfer_weights(weights_path, model, exclude_head=True, device='cpu'):
     return model
 
 
-def update_callback(cb, list_cbs):
+def update_callback(cb, list_cbs): 
+    """
+    用來避免「callback重複」,確保同類型 callback 不重複！
+    """
     for cb_ in list_cbs:
-        if type(cb_) ==  type(cb): list_cbs.remove(cb_)
+        if type(cb_) ==  type(cb): list_cbs.remove(cb_) # 如果原本 list_cbs 裡已經有相同類型的 callback，那就先移除舊的，再加上新的。
     list_cbs += [cb]
     return list_cbs
 
@@ -557,4 +567,28 @@ def get_layer_output(inp, model, layers=None, unwrap=False):
 3. lr_finder() → 自動搜尋學習率流程
 4. test() / predict() → 測試與推論如何執行
 5. callback → 如果要新增自訂流程（可選）
+
+--------------------------------------
+
+test()
+    ↓
+載入資料 & 權重
+    ↓
+建立 GetTestCB
+    ↓
+add_callback(GetTestCB)
+    ↓
+self('before_test')   # 叫大家做準備
+    ↓
+update_callback(GetTestCB, cbs_list)
+    ↓
+開始執行 all_batches('test')
+    ↓
+GetTestCB 在每個 batch 的 after_batch_test 觸發，收集 pred 和 target
+    ↓
+測試結束後 after_test，把 preds/targets 整理成大tensor
+    ↓
+Learner 回傳 preds, targets (out[0], out[1])
+
+
 """
