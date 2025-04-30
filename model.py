@@ -142,14 +142,16 @@ class xlstm(torch.nn.Module):
         # 線性轉換，特徵壓縮與輸出維度調整。
         self.mm= nn.Linear(self.configs.target_points, self.configs.n2) # 將模型的輸出時間點（target_points）經過線性轉換後，升維成 n2 維度。
                                                                         # 目的是讓輸出資料能符合 xLSTMBlockStack 所要求的輸入維度格式。
-                                                                        # 預設 n2 = 256
+                                                                        # 預設 target_points = 1, n2 = 256
         
         self.mm2= nn.Linear(config.embedding_dim, configs.target_points) # 線性轉換層，把 輸入維度：embedding_dim（例如 256） 轉換為 target_points。
                                                                          # LSTM Block（xLSTMBlockStack）處理完後，輸出的是 embedding 表示，仍是 256 維的抽象空間。
                                                                          # 為了變回「實際的 target 預測數據」，需要從 embedding_dim 壓回 target_points。
                                                                          # 把 xLSTM block 的輸出從 抽象 embedding 維度（如 256） → 具體預測維度。
         
-        self.mm3= nn.Linear(configs.context_points,self.configs.n2) # 未實際使用。
+        # self.mm3= nn.Linear(configs.context_points,self.configs.n2) # * 未實際使用。
+
+        self.head = nn.Linear(self.enc_in, 1)  # > feature-to-target regression head (Features → 1個目標)，讓最後輸出的 shape 變成 (batch_size, target_points, 1)。
 
         self.xlstm_stack = xLSTMBlockStack(config) # 4️⃣ 核心堆疊：xLSTMBlockStack
                                                    # 根據設定堆疊多層 sLSTMBlock 與 mLSTMBlock，進行時間與特徵關聯建模。
@@ -172,7 +174,7 @@ class xlstm(torch.nn.Module):
         print(f'〔合併〕長期趨勢(trend)與短期季節(seasonal): {x.shape} \n') # --用於研究
 
 
-        x=self.mm(x) # 接入一層 mm() 線性層：壓縮或轉換維度 
+        x = self.mm(x) # 接入一層 mm() 線性層：壓縮或轉換維度 
                     # self.mm = nn.Linear(features, embedding_dim)
                     # 線性轉為 embedding 維度（features → embedding_dim）
                     # linear layer（又叫 dense layer）全連接層，用來進行資料的維度轉換或特徵投影。
@@ -186,14 +188,15 @@ class xlstm(torch.nn.Module):
         print(f'經過xLSTM特徵提取與時序建模: {x.shape} \n') # --用於研究
         
         # 還原回 target_points
-        x=self.mm2(x) # 輸出再經過 mm2()，轉為 target_points 長度，形狀為(batch_size, features, target_points)
+        x = self.mm2(x) # 輸出再經過 mm2()，轉為 target_points 長度，形狀為(batch_size, features, target_points)
         print(f'mm2線性轉換: {x.shape} \n') # --用於研究
+        x = x.permute(0,2,1) # 形狀為(batch_size, target_points, features)
+        print(f"x shape before head: {x.shape} \n")  # Check shape before entering head
 
-        x=x.permute(0,2,1) # 形狀為(batch_size, target_points, features)
+        x = self.head(x) # Linear: features → 1
         print(f'最終輸出形狀: {x.shape} \n') # --用於研究
         print('\n', '-----'*10, '\n') # --用於研究
 
-        x = x[..., -1:]  # 只取出最後一個特徵（fish_weight）
         return x # 最後輸出 x：形狀為 (batch_size, target_points, fish_weight)
 
 '''
@@ -204,22 +207,36 @@ features => 輸入資料的「特徵維度」。一筆序列中，每一個時�
 
 ⛳ 資料流程圖（維度）
 Step 1: 輸入
-  原始 x → (batch_size, context_points, features) = (batch_size, 336, 7)
+  原始 x → (batch_size, context_points, features) = (batch_size, 1440, 6)
 
 Step 2: Decomposition → Linear 預測 → 相加後變成:
-  (batch_size, features, target_points) = (batch_size, 7, 96)
+  (batch_size, features, target_points) = (batch_size, 6, 1)
 
 Step 3: mm 線性升維
-  (batch_size, 7, 96) → mm → (batch_size, 7, 256)
+  (batch_size, 6, 1) → mm → (batch_size, 6, 256)
 
 Step 4: xLSTMBlockStack 處理
-  (batch_size, 7, 256) → 經過 block 處理 → (batch_size, 7, 256)
+  (batch_size, 6, 256) → 經過 block 處理 → (batch_size, 6, 256)
 
 Step 5: mm2 線性降維
-  (batch_size, 7, 256) → mm2 → (batch_size, 7, 96)
+  (batch_size, 6, 256) → mm2 → (batch_size, 6, 1)
 
 Step 6: permute 回 output 格式
-  最終輸出 shape = (batch_size, 96, 7)
+  最終輸出 shape = (batch_size, 1, 6)
+
+Step 7: head Linear (features → 1) 只留下 fish_weight
+  最終輸出 shape = (batch_size, 1, 1)
 
 ## mm / mm2 就像是時間維度與語意空間間的橋樑
+
+--------------------------------------
+
+Input: (temperature, turbidity, dissolved_oxg, pH, ammonia, nitrate)
+         ↓
+  LSTM (特徵抽取)
+         ↓
+ Linear Head (6 → 1)
+         ↓
+Output: (預測 fish_weight)
+
 '''
