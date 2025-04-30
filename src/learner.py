@@ -203,9 +203,9 @@ class Learner(GetAttr):
         return pred, loss
 
     def model_forward(self):
-        self('before_forward')
+        self('before_forward') # ! 觸發 Learner 所有 callback 的 before_forward() 方法
         self.pred = self.model(self.xb)
-        self('after_forward')
+        self('after_forward') # ! 執行 callback 裡的 after_forward() 方法。
         return self.pred
 
     def _do_batch_validate(self):       

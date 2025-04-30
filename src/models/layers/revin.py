@@ -30,13 +30,14 @@ class RevIN(nn.Module):
         self.affine_bias = nn.Parameter(torch.zeros(self.num_features))
 
     def _get_statistics(self, x):
-       # print('stdev 0',x.shape)
-        #x = x.permute(0, 2,1)# i add this 
+        # print('stdev 0',x.shape)
+        # x = x.permute(0, 2,1)# i add this 
         dim2reduce = tuple(range(1, x.ndim-1))
         self.mean = torch.mean(x, dim=dim2reduce, keepdim=True).detach()
         self.stdev = torch.sqrt(torch.var(x, dim=dim2reduce, keepdim=True, unbiased=False) + self.eps).detach()
 
     def _normalize(self, x):
+        # Z-score normalization 
         x = x - self.mean
         x = x / self.stdev
         if self.affine:
@@ -45,14 +46,15 @@ class RevIN(nn.Module):
         return x
 
     def _denormalize(self, x):
-        #print("x biggening ",x.shape)
+        # print("x biggening ",x.shape)
         if self.affine:
             x = x - self.affine_bias
             x = x / (self.affine_weight + self.eps*self.eps)
-            #print("x shape:", x.shape)
-        #print("x content:", x)
+            # print("x shape:", x.shape)
+        # print("x content:", x)
 
-        #print("self.stdev shape:", self.stdev.shape, "self.stdev type:", self.stdev.dtype)
+        # 將標準化後的預測還原回原始數值空間（但形狀也會還原成原始維度）
+        # print("self.stdev shape:", self.stdev.shape, "self.stdev type:", self.stdev.dtype)
         x = x * self.stdev
         x = x + self.mean
         return x
