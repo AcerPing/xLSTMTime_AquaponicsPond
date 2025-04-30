@@ -108,8 +108,9 @@ parser.add_argument('--model_type', type=str, default='based_model', help='for m
 parser.add_argument('--ch_ind', type=int, default=1, help='Channel Independence; True 1 False 0') # 是否讓每個通道（feature）獨立建模，而不是共享參數或進行聯合建模。 #可能是為 Mamba 模型預留的❌
 
 # TODO 【3】取決於是否啟用某些功能的參數
-parser.add_argument('--revin', type=int, default=1, help='reversible instance normalization') # 啟用 RevIN（可逆標準化），在 RevInCB 有用到。 # cbs = [RevInCB(dls.vars)] if args.revin else []
+parser.add_argument('--revin', type=int, default=0, help='reversible instance normalization') # 關閉 RevIN（可逆標準化）。 # cbs = [RevInCB(dls.vars)] if args.revin else []
                                                                                               # RevIN（Reversible Instance Normalization）可逆標準化技術 => 讓模型在統一的數值世界裡學習，學完再把預測翻譯回原本的語言。
+                                                                                              # * 這是原始模型中，對一切特徵做「多變量輸入」做的Z-score標準化。
 parser.add_argument('--scaler', type=str, default='minmax', help='scale the input data') # 特徵標準化方法。
 # Patch 時間補丁設定（用在 PatchCB），用在部分 callback 或未啟用。
 # patch補丁：把一整段長時間序列，切成一小段一小段的區塊（時間片段）來處理。
@@ -294,9 +295,7 @@ def plot_feature_actual_vs_predicted(actual, predicted, feature_idx):
     # 繪圖 Plot the first sequence
     plt.figure(figsize=(10, 6))
     plt.plot(range(len(actual_flat)), actual_flat, label="Actual (Ground Truth)", color='blue', marker='o', markersize=2, linestyle='-') # plt.plot(actual_feature, label="Actual", color='blue')
-
-    # ! plt.plot(range(len(predicted_flat)), predicted_flat, label="Predicted", color='red', marker='x', markersize=2, linestyle='--') # plt.plot(predicted_feature, label="Predicted", color='red', linestyle='--')
-    
+    plt.plot(range(len(predicted_flat)), predicted_flat, label="Predicted", color='red', marker='x', markersize=2, linestyle='--') # plt.plot(predicted_feature, label="Predicted", color='red', linestyle='--')
     plt.title(f"Actual vs Predicted Fish Weight (All Test Data)")
     plt.xlabel("Sample Index")
     plt.ylabel("Fish Weight")
