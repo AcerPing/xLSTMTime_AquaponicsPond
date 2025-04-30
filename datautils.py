@@ -94,7 +94,7 @@ if __name__ == "__main__":
         print(f"  - seq_x_mark 形狀: {batch[2].shape}")
         print(f"  - seq_y_mark 形狀: {batch[3].shape}")
         # print(i, len(batch), batch[0].shape, batch[1].shape) # 印出 batch 編號、batch 內元素個數、seq_x 和 seq_y 的 shape
-        # breakpoint() # break  # 只看第一個 batch
+        # breakpoint() # breakpoint() => 用來進入除錯模式（debugging），讓你能在程式執行過程中停下來，查看變數內容、單步執行、觀察行為。
 
 
 """

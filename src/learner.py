@@ -404,7 +404,7 @@ class Learner(GetAttr):
 
     def __call__(self, name): # 傳進來一個字串，例如 'before_test'
         for cb in self.cbs: # 遍歷所有 callback (self.cbs)
-            attr = getattr(cb, name)
+            attr = getattr(cb, name, None) #  如果 cb 中沒有 event_name 這個屬性或方法，會回傳 None。
             if attr is not None: attr() # 如果某個 callback 有一個叫做 'before_test' 的方法，就去呼叫那個方法！
           
 

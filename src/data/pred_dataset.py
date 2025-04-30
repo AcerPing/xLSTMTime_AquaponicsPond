@@ -551,10 +551,11 @@ class Dataset_Aquaponics (Dataset):
         #     // cols_data = df_raw.columns[1:]
         #     // df_data = df_raw[cols_data]
         # // elif self.features == 'S':
-        #     // df_data = df_raw[[self.target]] # 只有 target 特徵。        
+        #     // df_data = df_raw[[self.target]] # 只有 target 特徵。
         assert self.features == 'MS', f"features 必須是 'MS'，但收到的是 {self.features}"
         # 取 feature columns 與 target column
         feature_cols = [col for col in df_raw.columns if col not in [self.time_col_name, self.target]] # 時間欄位不是feature，所以一併排除； target是要被預測的，也排除。
+                                                                                                       # fish_weight 應為未知數，不能當作特徵。
         df_data_x = df_raw[feature_cols]
         df_data_y = df_raw[[self.target]] # target單獨取出，target = 'fish_weight'。
 
