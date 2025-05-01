@@ -246,26 +246,36 @@ class CSVLogger(Callback):
 
 
 class TrackerCB(Callback):
+    """
+    功能上是「監控某個指標」並偵測是否出現新的最佳值，但它不負責儲存模型，而是提供是否為最佳表現的判斷邏輯(self.new_best), 供其他callback使用, 例如SaveModelCB。
+    """
     def __init__(self, monitor='train_loss', comp=None, min_delta=0.):
         super().__init__()
-        if comp is None: comp = np.less if 'loss' in monitor or 'error' in monitor else np.greater
-        if comp == np.less: min_delta *= -1
+        if comp is None: comp = np.less if 'loss' in monitor or 'error' in monitor else np.greater # 如果沒指定comp且監控的指標名稱中包含'loss'或'error'，就會使用comp = np.less，意思是：希望越小越好（e.g., loss, MAE, MSE）。
+        if comp == np.less: min_delta *= -1 # 若是越小越好（np.less），那 min_delta 就要變成負數來做比較。
         self.monitor, self.comp, self.min_delta = monitor, comp, min_delta
 
-    def before_fit(self):
-        if self.run_finder: return
-        if self.best is None: self.best = float('inf') if self.comp == np.less else -float('inf')
-        self.monitor_names = list(self.learner.recorder.keys())
-        assert self.monitor in self.monitor_names
+    def before_fit(self): # 開始訓練
+        if self.run_finder: return # 如果正在進行學習率尋找（lr_finder），就略過這個 callback，不儲存模型。
+        if self.best is None: self.best = float('inf') if self.comp == np.less else -float('inf') # 設定目前最佳分數為 無限大（inf）（因為希望 loss 越小越好）。
+        self.monitor_names = list(self.learner.recorder.keys()) # 取得可以監控的指標（來自 recorder，如 valid_loss, mse, mae）。
+        assert self.monitor in self.monitor_names # 確保你設定的 monitor='valid_loss' 是 recorder 中存在的指標之一。
 
-    def after_epoch(self):        
-        if self.run_finder: return
-        val = self.learner.recorder[self.monitor][-1]
-        if self.comp(val - self.min_delta, self.best): self.best, self.new_best = val,True
-        else: self.new_best = False
+    def after_epoch(self): # 在每個 epoch 結束後，取出最新的指標值（如 valid_loss）。
+        if self.run_finder: return # 如果是在學習率尋找流程中就略過
+        val = self.learner.recorder[self.monitor][-1] # 從 learner.recorder 取出最新一筆 validation loss（或其他監控指標）。
+        if self.comp(val - self.min_delta, self.best): self.best, self.new_best = val,True # 如果比過去好，就更新最佳值，並標記為這輪是最好的。
+        else: self.new_best = False  # 否則標記為非最佳（不儲存模型）
 
 
-class SaveModelCB(TrackerCB):
+class SaveModelCB(TrackerCB): # 繼承自 TrackerCB，核心是「監控指標 + 自動儲存」。
+    """
+    〔負責儲存模型〕每當出現新最佳指標，就自動儲存當下的模型參數（.pth 檔）。
+    -- every_epoch: 如果不是 False, 代表每幾個 epoch 固定存檔一次，而不只存最佳模型。
+    -- with_opt: 是否一起儲存 optimizer 狀態。
+                如果 with_opt=False → 只儲存 模型參數(state_dict)；如果 with_opt=True → 會儲存 模型參數 + optimizer 狀態。
+                如果只是訓練一輪，最後要的只是最佳模型來跑測試 → with_opt=False; 如果是分段式訓練（例如一次跑 50 個 epoch、存 checkpoint,下次再從 50 繼續跑 100) → with_opt=True。
+    """
     def __init__(self, monitor='train_loss', comp=None, min_delta=0., 
                         every_epoch=False, fname='model', path=None, with_opt=False, save_process_id=0, global_rank=None):
         super().__init__(monitor=monitor, comp=comp, min_delta=min_delta)        
@@ -274,12 +284,6 @@ class SaveModelCB(TrackerCB):
         self.path, self.fname = path, fname
         self.with_opt = with_opt
         self.save_process_id = save_process_id
-
-        # Identify the worker that saves the model to a file: check if the process' global_rank == save_process_id
-        # If running locally using either a cpu/gpu without using DDP -> set save_process_id = global_rank
-        # Else if running in DDP mode but user doesn't specify global_rank -> global_rank = current_device
-        #       (local_rank 0 from each node will save the model)
-        # Else if user provides the global_rank -> use the global_rank to check
 
         if global_rank:
             self.global_rank = int(global_rank)
@@ -294,22 +298,24 @@ class SaveModelCB(TrackerCB):
 
     def _save(self, fname, path):
         if self.global_rank == self.save_process_id:
+            print(f"Saving model to {fname} at path {path}")
             self.last_saved_path = self.learner.save(fname, path, with_opt=self.with_opt)
 
     def after_epoch(self):
-        if self.every_epoch:
+        if self.every_epoch: # 如果設了 every_epoch，會根據 epoch 編號固定存檔。
             if ((self.epoch%self.every_epoch) == 0) or (self.epoch==self.n_epochs-1): 
                 self._save(f'{self.fname}_{self.epoch}', self.path)                            
-        else:
+        else: # 如果沒設 every_epoch，則只要存最佳。
             super().after_epoch()
-            if self.new_best:
+            if self.new_best: # 檢查這個 epoch 是否為最佳。
                 print(f'Better model found at epoch {self.epoch} with {self.monitor} value: {self.best}.')
-                self._save(f'{self.fname}', self.path)
+                self._save(f'{self.fname}', self.path) # 模型存檔（用 learner.save()）。
 
-    def after_fit(self):
+    def after_fit(self): # 在 after_fit()，如果 every_epoch 沒開啟，會在訓練結束後，把模型恢復為最佳紀錄。
         if self.run_finder: return
         if not self.every_epoch and self.global_rank == self.save_process_id:
-            self.learner.load(self.last_saved_path, with_opt=self.with_opt)
+            print(f"Loading best model from {self.last_saved_path}")
+            self.learner.load(self.last_saved_path, with_opt=self.with_opt) # 載入最佳模型權重
 
 
 class EarlyStoppingCB(TrackerCB):
@@ -331,6 +337,4 @@ class EarlyStoppingCB(TrackerCB):
             if self.impatient_level > self.patient:
                 print(f'No improvement since epoch {self.epoch-self.impatient_level}: early stopping')
                 raise KeyboardInterrupt
-
-
 
