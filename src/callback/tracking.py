@@ -319,22 +319,25 @@ class SaveModelCB(TrackerCB): # 繼承自 TrackerCB，核心是「監控指標 +
 
 
 class EarlyStoppingCB(TrackerCB):
-    def __init__(self, monitor='train_loss', comp=None, min_delta=0,
-                        patient=5):
+    """
+    當模型在驗證集（或指定監控指標）上長時間沒有進步時，提前結束訓練，避免浪費資源。
+    """
+    def __init__(self, monitor='train_loss', comp=None, min_delta=0, patient=5):
         super().__init__(monitor=monitor, comp=comp, min_delta=min_delta)
         self.patient = patient
     
     def before_fit(self):
-        # set the impatient level
+        # set the impatient level （訓練開始前，重設 impatient_level（耐心計數器））。
         self.impatient_level = 0
         super().before_fit()
     
     def after_epoch(self):
-        super().after_epoch()
-        if self.new_best: self.impatient_level = 0   # reset the impatience
-        else:
+        super().after_epoch() # # 先用 TrackerCB 判斷這一輪有沒有 new_best
+        if self.new_best: # 有進步，耐心計數器歸零。
+            self.impatient_level = 0   # reset the impatience
+        else: #  # 沒進步，耐心計數器 +1
             self.impatient_level += 1
-            if self.impatient_level > self.patient:
+            if self.impatient_level > self.patient: # 超過 patient，直接 raise KeyboardInterrupt，中斷訓練。
                 print(f'No improvement since epoch {self.epoch-self.impatient_level}: early stopping')
                 raise KeyboardInterrupt
 

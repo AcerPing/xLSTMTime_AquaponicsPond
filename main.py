@@ -72,7 +72,7 @@ parser.add_argument('--model_name2', type=str, default='xLSTMTime', help='model_
 
 parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # ✅ 模型版本號（便於存檔），在 args.save_model_name 會用到。
 # Optimization args
-parser.add_argument('--n_epochs', type=int, default=100, help='number of training epochs') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
+parser.add_argument('--n_epochs', type=int, default=500, help='number of training epochs') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
 parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # ✅ 學習率（可被 find_lr() 覆蓋）
 parser.add_argument('--n2', type=int, default=256, help='Second Embedded representation') # ✅ 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 
 
@@ -85,7 +85,7 @@ parser.add_argument('--num_workers', type=int, default=1, help='number of worker
 
 # TODO 【2】定義了但目前未被使用的參數（可能是保留、兼容或暫未實作）（❌代表未用到。）
 # 模型初始化
-parser.add_argument('--n1', type=int, default=128, help='First Embedded representation')  #256 # 原意應為第一層 embedding，未使用。 ❌
+# -- parser.add_argument('--n1', type=int, default=128, help='First Embedded representation')  #256 # 原意應為第一層 embedding，未使用。 ❌
 # 原本可能是用於 Mamba 模型的設定，但目前 xlstm 未使用
 parser.add_argument('--d_state', type=int, default=128, help='d_state parameter of Mamba')  #256 ❌
 parser.add_argument('--dconv', type=int, default=2, help='d_conv parameter of Mamba') # ❌
@@ -222,7 +222,8 @@ def train_func(lr=args.lr):
                                                                                            # 監控「驗證集損失」的表現（valid_loss）。如果新的驗證損失比先前更好，就保存模型。
                                                                                            # 設定 儲存的檔名 與 儲存的資料夾路徑。
                                                                                            # * 設 min_delta=0.001 或 0.002 會讓模型儲存更謹慎，僅在有意義的進步時更新最佳檔案。
-        CSVLogger(save_dir='results', filename='epoch_log.csv')  # 將訓練過程中每一個epoch的損失與評估指標儲存為 .csv 檔
+        CSVLogger(save_dir='results', filename='epoch_log.csv'),  # 將訓練過程中每一個epoch的損失與評估指標儲存為 .csv 檔
+        EarlyStoppingCB(monitor='valid_loss', min_delta=0.001, patient=10) # 早停法，避免過擬合。
     ]
 
     # define learner
@@ -306,6 +307,32 @@ def plot_feature_actual_vs_predicted(actual, predicted, feature_idx):
     plt.show()
 
 
+def save_lr_curve_from_csv(csv_path: str, out_dir: str, f_name: str = 'Learning_Curve'):
+    df = pd.read_csv(csv_path)
+    plt.figure(figsize=(12, 6))
+    plt.plot(df['train_loss'], label='Train Loss', marker='o', markersize=4)
+    plt.plot(df['valid_loss'], label='Validation Loss', marker='s', markersize=4)
+
+    for i, value in enumerate(df['train_loss']):
+        if i % 10 == 0:
+            plt.annotate(f'{value:.4f}', xy=(i, value), xytext=(0, 5), textcoords='offset points', ha='center', fontsize=10, color='blue', alpha=0.8)
+    for i, value in enumerate(df['valid_loss']):
+        if i % 10 == 0:
+            plt.annotate(f'{value:.4f}', xy=(i, value), xytext=(0, -10), textcoords='offset points', ha='center', fontsize=10, color='orange', alpha=0.8)
+
+    plt.title(f'{f_name} (Model Loss)')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+
+    save_path = os.path.join(out_dir, f'{f_name}.png')
+    plt.savefig(save_path, bbox_inches='tight')
+    plt.close()
+    print(f"Learning curve saved to {save_path}")
+
+
 def save_arguments(out_dir, args):
     """
     將 args（可以是 argparse.Namespace 或 dict）儲存為 JSON 格式，
@@ -336,6 +363,7 @@ if __name__ == '__main__':
         print('suggested lr:', suggested_lr)
         save_arguments("results", configs) # 儲存訓練參數。
         train_func(suggested_lr) # 執行訓練
+        save_lr_curve_from_csv('results/epoch_log.csv', 'results', f_name='Learning_Curve') # 繪製 Learning Curve
 
     else:  # testing mode 執行測試與可視化
         # 1.) 呼叫 test_func()，得到 out = [pred, targ, score_values]。
