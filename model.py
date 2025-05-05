@@ -179,8 +179,7 @@ class xlstm(torch.nn.Module):
         if verbose: print(f'mm線性轉換: {x.shape} \n') # 形狀為 (batch_size, features, embedding_dim) # --用於研究
 
         
-        #x = self.batch_norm(x) # - 不一定需要，但可考慮加入來補強模型訓練初期的穩定性。
-                                # 可視為前處理，對每個feature channel做標準化，有可能提升模型穩定性與收斂效果，但需依任務特性測試確認。
+        x = self.batch_norm(x) # 可視為前處理，對每個feature channel做標準化，有可能提升模型穩定性與收斂效果，但需依任務特性測試確認，補強模型訓練初期的穩定性。
     
         x = self.xlstm_stack(x) # 傳入 xLSTMBlockStack（核心 block），形狀為(batch_size, features, embedding_dim)
         if verbose: print(f'經過xLSTM特徵提取與時序建模: {x.shape} \n') # --用於研究
