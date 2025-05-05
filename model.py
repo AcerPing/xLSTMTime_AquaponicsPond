@@ -21,10 +21,8 @@ config = xLSTMBlockStackConfig(
         mlstm_block=mlstm_config,
         slstm_block=slstm_config, # Block組成：sLSTM + mLSTM 搭配，包含多個 mLSTMBlock/sLSTMBlock 的堆疊。
         num_blocks=3, # 3 個 block 疊加
-        embedding_dim=256, # 是傳入 xLSTM block 的特徵維度。線性升維：5 維 → 256 維。
-        # embedding_dim 跟 features 是不同的。
-        # features：原始資料的特徵數量（欄位數）。
-        # embedding_dim：經過線性層或處理後，要輸入給 xLSTMBlockStack 的內部維度（用來表示特徵的空間）。（變換後的維度）
+        embedding_dim=128, # 是傳入 xLSTM block 的特徵維度。線性調整維度：target_points → 128 維；或 128 維 → target_points。
+        # embedding_dim：經過線性層或處理後，要輸入給 xLSTMBlockStack 的內部維度。
         # 升維的目的，因為 模型的「表現空間」通常比輸入維度高。 embedding_dim：是模型內部抽象表徵的空間（更有表達力）。
         add_post_blocks_norm=True, # 加上 normalization
                                   # 在 xLSTMBlockStack 的每個 block 執行完後，自動加上一層 LayerNorm 或 BatchNorm。
@@ -105,7 +103,7 @@ class series_decomp2(nn.Module): # 2️⃣ 將序列分解為趨勢與季節性�
 class xlstm(torch.nn.Module):
     """
     # 整體預測模型的封裝（核心部分）
-    # xLSTMBlockStack：內部使用 sLSTM、mLSTM 的堆疊模型。
+    # xLSTMBlockStack: 內部使用 sLSTM、mLSTM 的堆疊模型。
     """
     def __init__(self, configs, enc_in):
         super(xlstm, self).__init__()
@@ -175,8 +173,8 @@ class xlstm(torch.nn.Module):
 
 
         x = self.mm(x) # 接入一層 mm() 線性層：壓縮或轉換維度 
-                    # self.mm = nn.Linear(features, embedding_dim)
-                    # 線性轉為 embedding 維度（features → embedding_dim）
+                    # self.mm = nn.Linear(target_points, embedding_dim)
+                    # 線性轉為 embedding 維度（target_points → embedding_dim）或（embedding_dim → target_points）
                     # linear layer（又叫 dense layer）全連接層，用來進行資料的維度轉換或特徵投影。
         if verbose: print(f'mm線性轉換: {x.shape} \n') # 形狀為 (batch_size, features, embedding_dim) # --用於研究
 

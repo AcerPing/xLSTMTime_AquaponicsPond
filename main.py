@@ -74,7 +74,7 @@ parser.add_argument('--model_id', type=int, default=1, help='id of the saved mod
 # Optimization args
 parser.add_argument('--n_epochs', type=int, default=500, help='number of training epochs') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
 parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # ✅ 學習率（可被 find_lr() 覆蓋）
-parser.add_argument('--n2', type=int, default=256, help='Second Embedded representation') # ✅ 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 
+parser.add_argument('--n2', type=int, default=128, help='Second Embedded representation') # ✅ 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 
 
 parser.add_argument('--use_time_features', type=int, default=0, help='whether to use time features or not') # ✅ 是否加入時間欄位特徵，用在 datautils.py。 # * 0, False
 parser.add_argument('--features', type=str, default='MS', help='for multivariate model or univariate model') # ✅ 特徵類型（M: multivariate 多變量、 S: Single單變量），用在 datautils.py。
@@ -92,8 +92,8 @@ parser.add_argument('--dconv', type=int, default=2, help='d_conv parameter of Ma
 parser.add_argument('--e_fact', type=int, default=2, help='expand factor parameter of Mamba') # ❌
 parser.add_argument('--residual', type=int, default=1, help='Residual Connection; True 1 False 0') # 殘差設定❌
 # 和 Transformer 架構相關，原始碼中未被 xlstm 調用。
-parser.add_argument('--n_layers', type=int, default=3, help='number of Transformer layers') # ❌
-parser.add_argument('--d_model', type=int, default=256, help='Transformer d_model') # ❌
+# parser.add_argument('--n_layers', type=int, default=3, help='number of Transformer layers') # ❌
+# parser.add_argument('--d_model', type=int, default=256, help='Transformer d_model') # ❌
 parser.add_argument('--head_dropout', type=float, default=0, help='head dropout') # 沒有實際實作❌
 parser.add_argument('--dropout', type=float, default=0.2, help='Transformer dropout')
 # parser.add_argument('--d_ff', type=int, default=256, help='Tranformer MLP dimension')
@@ -242,6 +242,10 @@ def test_func():
     測試與視覺化（圖形化預測效果）
     """
     weight_path = args.save_path + '/' + args.save_model_name + '.pth' # 載入權重 .pth
+    if not os.path.exists(weight_path): # 確認權重檔案是否存在
+        raise FileNotFoundError(f"❌ 找不到模型權重檔案: {weight_path}！ \n")
+    print(f"✅ 準備載入模型權重檔案: {weight_path}")
+
     # get dataloader
     dls = get_dls(args) # 載入測試集資料。
     model = get_model(dls.vars, args) # 第一階段：初始化模型架構、搭建出模型結構。
@@ -249,7 +253,7 @@ def test_func():
 
     # get callbacks
     cbs = [RevInCB(dls.vars)] if args.revin else []
-    #cbs += [PatchCB(patch_len=args.patch_len, stride=args.stride)] # Patch-based 時間序列切片
+    # cbs += [PatchCB(patch_len=args.patch_len, stride=args.stride)] # Patch-based 時間序列切片
 
     learn = Learner(dls, model, cbs=cbs) # 第二階段：建立 Learner 實例。
                                          # 測試時，只要載入訓練好的權重，做 forward 預測即可，不需要做 loss.backward() 或梯度更新，所以可以不指定 loss function。
