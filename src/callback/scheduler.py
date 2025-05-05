@@ -68,7 +68,7 @@ class OneCycleLR(Callback):
 
 
 class LRFinderCB(Callback):
-    def __init__(self, start_lr=1e-7, end_lr=10, num_iter=100, step_mode='exp', beta=0.98, suggestion='valley'):
+    def __init__(self, start_lr=1e-7, end_lr=10, num_iter=100, step_mode='exp', beta=0.98, suggestion='valley'): # exp (ExponentialLR) → 指數式增加學習率；linear → 線性增加學習率。
         self.start_lr, self.end_lr = start_lr, end_lr
         self.num_iter = num_iter
         self.step_mode = step_mode                

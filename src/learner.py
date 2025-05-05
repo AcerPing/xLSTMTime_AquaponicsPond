@@ -40,22 +40,22 @@ class Learner(GetAttr):
                         **kwargs): # 初始化資料集、模型、Loss、Optimizer、Callbacks
                 
         self.model, self.dls, self.loss_func, self.lr = model, dls, loss_func, lr
-        self.opt_func = opt_func
-        #self.opt = self.opt_func(self.model.parameters(), self.lr) 
+        self.opt_func = opt_func # Adam
         self.set_opt()
-        
         self.metrics = metrics
-        self.n_inp  = 2
+        self.n_inp  = 2 # (x, y) 兩個元素，x 是 input（features 特徵）、y 指的是 ground truth（真實 y），
         # self.n_inp = self.dls.train.dataset.n_inp if self.dls else 0
+
         # Initialize callbacks                 
         if cbs and not isinstance(cbs, List): cbs = [cbs]    
-        self.initialize_callbacks(cbs)        
+        self.initialize_callbacks(cbs)
+           
         # Indicator of running lr_finder
         self.run_finder = False
 
     def set_opt(self):
         if self.model:
-            self.opt = self.opt_func(self.model.parameters(), self.lr) 
+            self.opt = self.opt_func(self.model.parameters(), self.lr) # 設定 optimizer 優化器
         else: self.opt = None
 
 
@@ -371,18 +371,18 @@ class Learner(GetAttr):
         find the learning rate
         自動尋找適合的學習率
         """
-        n_epochs = num_iter//len(self.dls.train) + 1
+        n_epochs = num_iter//len(self.dls.train) + 1 # 計算要跑幾個 epoch 才能剛好跑完 num_iter 次迭代。
         # indicator of lr_finder method is applied
-        self.run_finder = True
+        self.run_finder = True # 讓系統知道現在是尋找學習率。
         # add LRFinderCB to callback list and will remove later
-        cb = LRFinderCB(start_lr, end_lr, num_iter, step_mode, suggestion=suggestion)                
+        cb = LRFinderCB(start_lr, end_lr, num_iter, step_mode, suggestion=suggestion) #　建立一個 LRFinderCB callback，負責在每個 batch 更新學習率、記錄 loss。
         # fit           
-        self.fit(n_epochs=n_epochs, cbs=cb, do_valid=False)        
+        self.fit(n_epochs=n_epochs, cbs=cb, do_valid=False) # 跑一個小的訓練階段，不跑驗證（do_valid=False），
         # should remove LRFinderCB callback after fitting                
-        self.remove_callback(cb)        
+        self.remove_callback(cb) # 跑完之後，把 LRFinderCB 移除，回到正常狀態。
         self.run_finder = False        
-        if show_plot: cb.plot_lr_find()
-        if suggestion: return cb.suggested_lr  
+        if show_plot: cb.plot_lr_find() # 畫出「學習率 vs loss」的曲線圖。
+        if suggestion: return cb.suggested_lr # 回傳建議的學習率。
         
         
 
