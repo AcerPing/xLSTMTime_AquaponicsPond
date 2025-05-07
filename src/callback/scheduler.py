@@ -10,17 +10,17 @@ from torch.optim.lr_scheduler import _LRScheduler
 
 
 class OneCycleLR(Callback):
-    def __init__(self, lr_max=None,
-                        total_steps=None,                        
-                        steps_per_epoch=None,
-                        pct_start=0.3,
-                        anneal_strategy='cos',
-                        cycle_momentum=True,
-                        base_momentum=0.85,
+    def __init__(self, lr_max=None, # 最大學習率
+                        total_steps=None, # 總共多少步
+                        steps_per_epoch=None, # 每個 epoch 有多少 batch
+                        pct_start=0.3, # 多少比例的訓練時間用來升高學習率（ex: 0.3 = 30% 往上、70% 往下）
+                        anneal_strategy='cos', # 降低學習率的策略（'cos' = 餘弦、'linear' = 線性）
+                        cycle_momentum=True, # 是否同時調整 momentum
+                        base_momentum=0.85, #  momentum 調整範圍
                         max_momentum=0.95,
-                        div_factor=25.,
+                        div_factor=25., # 初始與最終學習率的比例因子
                         final_div_factor=1e4,
-                        three_phase=False,
+                        three_phase=False, # 是否分成 3 個階段（進階模式）
                         last_epoch=-1,
                         verbose=False):
 
@@ -36,7 +36,7 @@ class OneCycleLR(Callback):
         self.verbose = verbose
                 
 
-    def before_fit(self):
+    def before_fit(self): # 初始化 scheduler
         if not self.steps_per_epoch: self.steps_per_epoch = len(self.dls.train)
         self.lrs = []  # store lr values
         
@@ -55,14 +55,14 @@ class OneCycleLR(Callback):
                                             three_phase=self.three_phase,
                                             last_epoch=self.last_epoch,
                                             verbose=self.verbose
-                                            )
+                                            ) # 在訓練中自動調整學習率
 
     def after_batch_train(self):
         if self.model.training: 
-            self.scheduler.step()
+            self.scheduler.step() # 更新 learning rate（和 momentum）。
             self.lrs.append( self.scheduler.get_last_lr()[0] )                  
 
-    def after_fit(self):        
+    def after_fit(self): # 訓練結束後，把跑過的學習率歷史存到self.learner.scheduled_lrs，用於畫圖、分析。
         self.learner.scheduled_lrs = self.lrs
                 
 

@@ -11,20 +11,22 @@ import csv # 將訓練過程中每一個 epoch 的損失與評估指標儲存為
 
 
 class TrackTimerCB(Callback):
+    """
+    用來記錄每個 epoch 花費的時間
+    """
     def __init__(self):
         super().__init__()
-        
 
     def before_fit(self):
-        self.learner.epoch_time = None
+        self.learner.epoch_time = None # 當訓練開始（fit 開始前），先把 epoch_time 清空。
 
     def before_epoch_train(self):         
-        self.start_time = time.time()
+        self.start_time = time.time() # 當一個 epoch 開始訓練時，記下開始時間。
 
     def after_epoch_train(self): 
-        self.learner.epoch_time = self.format_time(time.time() - self.start_time)
+        self.learner.epoch_time = self.format_time(time.time() - self.start_time) # 當 epoch 訓練結束時，算出當前時間減去開始時間，得到花費的秒數。
 
-    def format_time(self, t):
+    def format_time(self, t): # 轉換成人類可讀的格式
         "Format `t` (in seconds) to (h):mm:ss"
         t = int(t)
         h, m, s = t // 3600, (t // 60) % 60, t % 60
@@ -35,10 +37,13 @@ class TrackTimerCB(Callback):
 
 
 class TrackTrainingCB(Callback):
+    """
+    用來「記錄訓練與驗證過程中各種數值」的 callback
+    """
 
     def __init__(self, train_metrics=False, valid_metrics=True):
         super().__init__()        
-        self.train_metrics, self.valid_metrics = train_metrics, valid_metrics 
+        self.train_metrics, self.valid_metrics = train_metrics, valid_metrics # 要不要紀錄訓練集上的metrics 以及 要不要紀錄驗證集上的metrics
 
     def init_cb_(self):
         self.setup()    
@@ -47,30 +52,36 @@ class TrackTrainingCB(Callback):
             self.mean_reduction_ = True if self.loss_func.reduction == 'mean' else False   
 
     def before_fit(self):        
-        self.setup()    
-        self.initialize_recorder()        
+        self.setup() # 決定要記哪些東西、判斷資料集是否有 valid 部分
+        self.initialize_recorder() # 建立一個 recorder 字典（裡面放 epoch、loss、metrics 等欄位）
         if hasattr(self.loss_func, 'reduction'):
             self.mean_reduction_ = True if self.loss_func.reduction == 'mean' else False        
     
     def setup(self):
+        """
+        要不要記錄 validation loss、要不要計算 metrics
+        """
         self.valid_loss = False
-        if self.learner.dls: 
-            if not self.learner.dls.valid: self.valid_metrics = False    
-            else: self.valid_loss = True
+        if self.learner.dls: # 如果 learner.dls 存在（確定有 dataloader 資料）
+            if not self.learner.dls.valid: self.valid_metrics = False # 如果沒有validation set，則強制關閉valid_metrics（因為沒東西驗證）。
+            else: self.valid_loss = True # 如果有validation set，則打開self.valid_loss，代表要記錄validation loss。
 
-        if self.metrics:
+        if self.metrics: # 如果 self.metrics 有提供（例如 [mse, mae]）
             if not isinstance(self.metrics, list): self.metrics = [self.metrics]   
-            self.metric_names = [func.__name__ for func in self.metrics]                       
+            self.metric_names = [func.__name__ for func in self.metrics] # 提取這些函數的名稱，存在 self.metric_names（之後可以對應到記錄表欄位）。
         else: self.metrics, self.metric_names = [], []        
             
     def initialize_recorder(self):
+        """
+        建立一個字典，用來記錄每個 epoch 中重要指標的數值。
+        """
         recorder = {'epoch': [],  'train_loss': []} 
         if self.valid_loss: recorder['valid_loss'] = []
 
         for name in self.metric_names: 
-            if self.train_metrics: recorder['train_'+name] = []            
-            if self.valid_metrics: recorder['valid_'+name] = []
-        self.recorder = recorder        
+            if self.train_metrics: recorder['train_'+name] = [] # 紀錄訓練集對應指標。
+            if self.valid_metrics: recorder['valid_'+name] = [] # 紀錄驗證集對應指標。
+        self.recorder = recorder # 把這個 recorder 存入 callback 與 learner， 這樣後面其他 callback 也能用 learner.recorder 存取或更新它。
         self.learner.recorder = recorder            
         
 
@@ -100,7 +111,7 @@ class TrackTrainingCB(Callback):
         self.reset()
 
 
-    def after_epoch_train(self):         
+    def after_epoch_train(self): # 計算 epoch 統計值（整體平均 loss、metric 分數），並寫入 recorder。
         values = self.compute_scores()           
         # save training loss after one epoch                
         self.recorder['train_loss'].append( values['loss'] )
@@ -110,7 +121,7 @@ class TrackTrainingCB(Callback):
                 self.recorder['train_'+name].append( values[name] ) 
             
 
-    def after_epoch_valid(self):             
+    def after_epoch_valid(self): # 計算 epoch 統計值（整體平均 loss、metric 分數），並寫入 recorder。
         # if there is no valid data, don't store
         if not self.learner.dls.valid: return
         values = self.compute_scores()                

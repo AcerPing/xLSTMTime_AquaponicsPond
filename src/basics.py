@@ -53,7 +53,8 @@ def default_device(use_cuda=True):
     "Return or set default device; `use_cuda`: None - CUDA if available; True - error if not available; False - CPU"
     if not torch.cuda.is_available():
         use_cuda = False
-    return torch.device(torch.cuda.current_device()) if use_cuda else torch.device('cpu')
+    return torch.device(torch.cuda.current_device()) if use_cuda else torch.device('cpu') # 如果系統上 有可用的 GPU 且 use_cuda=True，就會回傳 torch.device(torch.cuda.current_device())
+                                                                                          # 如果系統 沒有 GPU 或 use_cuda=False，則會回傳 torch.device('cpu')。
 
 
 def get_available_cuda(usage=10):
