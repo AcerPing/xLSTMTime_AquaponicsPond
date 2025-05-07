@@ -14,7 +14,7 @@ from src.callback.scheduler import *
 from src.callback.patch_mask import *
 from src.callback.transforms import *
 from src.metrics import *
-from src.plots import save_arguments, save_lr_curve_from_csv, plot_feature_actual_vs_predicted, plot_error_histogram, plot_residuals, save_yy_plot
+from src.plots import save_arguments, save_lr_curve_from_csv, plot_feature_actual_vs_predicted, plot_error_histogram, plot_residuals, save_yy_plot, save_metrics
 from datautils import get_dls # Get Data loaders：原始作者定義的載入資料模組。根據提供的參數，載入並處理對應的資料集，最後輸出 PyTorch 標準格式的 DataLoaders（訓練與測試用）。
 
 from packaging import version
@@ -64,6 +64,7 @@ parser.add_argument('--model_name', type=str, default='xLSTMTime', help='model_n
 parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # ✅ 模型版本號（便於存檔），在 args.save_model_name 會用到。
 # Optimization args
 parser.add_argument('--n_epochs', type=int, default=100, help='number of training epochs') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
+parser.add_argument('--pct_start', type=float, default=0.2, help='有多少比例的n_epochs用於「學習率從初始值提升到最高值」') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
 parser.add_argument('--n2', type=int, default=128, help='Second Embedded representation') # ✅ 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 
 
 parser.add_argument('--use_time_features', type=int, default=0, help='whether to use time features or not') # ✅ 是否加入時間欄位特徵，用在 datautils.py。 # * 0, False
@@ -207,14 +208,17 @@ def train_func(lr=args.lr):
                                                     # args.revin => 判斷是否啟用 RevIN 功能。
                                                     # RevInCB(dls.vars) => 建立一個 RevIN Callback 實例，傳入變數資訊。
                                                     # 在 輸入前 對資料做 normalization，在 模型輸出後 還原（denormalize）預測值。
+    post_peak_epochs = int(args.n_epochs * (1 - args.pct_start))
+    patient = max(10, int(post_peak_epochs * 0.6))
     cbs += [
         #PatchCB(patch_len=args.patch_len, stride=args.stride), # Patch-based 時間序列切片
         SaveModelCB(monitor='valid_loss', min_delta=0.001, fname=args.save_model_name, path=args.save_path), # 建立保存模型的callback，在訓練過程中自動儲存最佳模型權重檔（.pth）。
                                                                                            # 監控「驗證集損失」的表現（valid_loss）。如果新的驗證損失比先前更好，就保存模型。
                                                                                            # 設定 儲存的檔名 與 儲存的資料夾路徑。
                                                                                            # * 設 min_delta=0.001 或 0.002 會讓模型儲存更謹慎，僅在有意義的進步時更新最佳檔案。
-        CSVLogger(save_dir='results', filename='epoch_log.csv'),  # 將訓練過程中每一個epoch的損失與評估指標儲存為 .csv 檔
-        EarlyStoppingCB(monitor='valid_loss', min_delta=0.001, patient=10) # 早停法，避免過擬合。
+        CSVLogger(save_dir=args.save_path, filename='epoch_log.csv'),  # 將訓練過程中每一個epoch的損失與評估指標儲存為 .csv 檔
+        EarlyStoppingCB(monitor='valid_loss', min_delta=0.001, patient=patient) # 早停法，避免過擬合。
+                                                                                # 由於有使用fit_one_cycle，因此 patient 要設大一點，例如 patient = 10~20。
     ]
 
     # define learner
@@ -225,7 +229,7 @@ def train_func(lr=args.lr):
                     )
 
     # fit the data to the model
-    learn.fit_one_cycle(n_epochs=args.n_epochs, lr_max=lr, pct_start=0.2) # 使用 fit_one_cycle 進行訓練，先提高學習率再慢慢降低，先升高 → 達到高峰 → 再慢慢下降。
+    learn.fit_one_cycle(n_epochs=args.n_epochs, lr_max=lr, pct_start=args.pct_start) # 使用 fit_one_cycle 進行訓練，先提高學習率再慢慢降低，先升高 → 達到高峰 → 再慢慢下降。
 
 
 def test_func():
@@ -254,7 +258,7 @@ def test_func():
                                                                             # targs = target（也就是 "ground truth"），測試資料中的「實際答案」。
                                                                             # scores: 評估結果，例如 MSE 和 MAE。
                                                                             
-    return out 
+    return out, learn.model
     # dls.test.dataset # 〔備用〕如果需要還原實際值
 
 
@@ -270,11 +274,17 @@ if __name__ == '__main__':
         save_lr_curve_from_csv(os.path.join(args.save_path, 'epoch_log.csv'), args.save_path, f_name=f'{args.dset} Learning Curve') # 繪製 Learning Curve
 
     else:  # testing mode 執行測試與可視化
-        # 1.) 呼叫 test_func()，得到 out = [pred, targ, score_values]。
+        # 1.) 呼叫 test_func()，得到 out = [pred, targ, score_values] & learn_model。
         # 2.) 針對每個 feature_idx，使用 plot_feature_actual_vs_predicted() 畫出 pred vs targ 曲線。
 
-        out = test_func() # out: a list of [pred, targ, score_values]
+        out, learn_model = test_func() # out: a list of [pred, targ, score_values] & learn_model
+
+        metric_names = ['MSE', 'RMSE', 'MAE', 'R2 Score']
         print('score:', out[2]) # MSE和MAE的評估結果。
+        metrics_df = pd.DataFrame({'Metric': metric_names, 'Value': out[2]})
+        print(metrics_df.to_string(index=False))
+        save_metrics(actual=out[1], predicted=out[0], out_dir=args.save_path, model = learn_model)
+
         print('pred.shape:', out[0].shape) # 模型預測出來的值。
         print('targ.shape:', out[1].shape) # targ = target（也就是 "ground truth"），測試資料中的「實際答案」。
 
