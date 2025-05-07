@@ -1,14 +1,11 @@
-#good
 import sys
 import os
 import math
-import json
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
 from dataclasses import dataclass
-from einops import rearrange, repeat, einsum # ??
 
 from src.learner import Learner
 from src.callback.core import *
@@ -17,16 +14,8 @@ from src.callback.scheduler import *
 from src.callback.patch_mask import *
 from src.callback.transforms import *
 from src.metrics import *
+from src.plots import save_arguments, save_lr_curve_from_csv, plot_feature_actual_vs_predicted, plot_error_histogram, plot_residuals, save_yy_plot
 from datautils import get_dls # Get Data loaders：原始作者定義的載入資料模組。根據提供的參數，載入並處理對應的資料集，最後輸出 PyTorch 標準格式的 DataLoaders（訓練與測試用）。
-
-import time
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
-from timm.utils import accuracy, AverageMeter
-
-import random, datetime
-from functools import partial
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-from sklearn.model_selection import train_test_split
 
 from packaging import version
 
@@ -66,14 +55,15 @@ parser.add_argument('--is_train', type=int, default=0, help='training the model'
 parser.add_argument('--context_points', type=int, default=1440, help='sequence length') # ✅ 輸入序列長度。 # * 1440 
 parser.add_argument('--target_points', type=int, default=1, help='forecast horizon') # ✅ 預測序列長度、預測步數。 # * 1
 parser.add_argument('--batch_size', type=int, default=128, help='batch size') # ✅ DataLoader批次大小，在 get_dls() 會用到。  # -- 64, 656
+parser.add_argument('--lr', type=float, default=1e-4, help='learning rate') # ✅ 學習率
+                                                                            # -- 'FishAquaponics_IoTpond2': 1e-5；'FishAquaponics_IoTpond3': 1e-4；'FishAquaponics_IoTpond4': 1e-4
 
 parser.add_argument('--dset', type=str, default='aquaponics', help='dataset name') # ✅ 資料集名稱（如 ettm1） 
-parser.add_argument('--model_name2', type=str, default='xLSTMTime', help='model_name2') # ✅ 模型命名，在 args.save_model_name 會用到。 
+parser.add_argument('--model_name', type=str, default='xLSTMTime', help='model_name') # ✅ 模型命名，在 args.save_model_name 會用到。 
 
 parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # ✅ 模型版本號（便於存檔），在 args.save_model_name 會用到。
 # Optimization args
-parser.add_argument('--n_epochs', type=int, default=500, help='number of training epochs') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
-parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # ✅ 學習率（可被 find_lr() 覆蓋）
+parser.add_argument('--n_epochs', type=int, default=100, help='number of training epochs') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
 parser.add_argument('--n2', type=int, default=128, help='Second Embedded representation') # ✅ 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 
 
 parser.add_argument('--use_time_features', type=int, default=0, help='whether to use time features or not') # ✅ 是否加入時間欄位特徵，用在 datautils.py。 # * 0, False
@@ -82,6 +72,7 @@ parser.add_argument('--features', type=str, default='MS', help='for multivariate
                                                                                                             # 多變量（M）=> 每筆資料有多種特徵（同時觀察/預測多個欄位）
                                                                                                             # * NOTE MS -> 多變量預測單變量（multi→single）。
 parser.add_argument('--num_workers', type=int, default=1, help='number of workers for DataLoader') # ✅ DataLoader 多執行緒設定，用在 datautils.py。
+parser.add_argument('--out_dir', type=str, default='results', help='path for output directory') # ✅ 指定輸出目錄的路徑，預設值為 results。
 
 # TODO 【2】定義了但目前未被使用的參數（可能是保留、兼容或暫未實作）（❌代表未用到。）
 # 模型初始化
@@ -121,8 +112,8 @@ args = parser.parse_args()
 print('args:', args)
 
 # 設定儲存模型的名稱與路徑 # !!! 需要修改檔名命名方式
-args.save_model_name = f"{args.model_name2}_cw{args.context_points}_tw{args.target_points}_epochs{args.n_epochs}_model{args.model_id}" # 模型名稱
-args.save_path = 'saved_models/' + args.dset  # 儲存模型位置路徑
+args.save_model_name = f"{args.model_name}_cw{args.context_points}_tw{args.target_points}_epochs{args.n_epochs}_model{args.model_id}" # 模型名稱
+args.save_path = os.path.join(args.out_dir, args.dset)  # 儲存模型位置路徑
 if not os.path.exists(args.save_path): os.makedirs(args.save_path) # 建立資料夾
 
 configs = args # 全域變數（global variable），只要在 get_model() 裡沒有重新定義名為 configs 的區域變數，Python 就會使用外層的 全域變數 configs。
@@ -230,7 +221,7 @@ def train_func(lr=args.lr):
     learn = Learner(dls, model, loss_func,
                     lr=lr,
                     cbs=cbs,
-                    metrics=[mse, mae]
+                    metrics=[mse, rmse, mae, r2_score]
                     )
 
     # fit the data to the model
@@ -257,7 +248,7 @@ def test_func():
 
     learn = Learner(dls, model, cbs=cbs) # 第二階段：建立 Learner 實例。
                                          # 測試時，只要載入訓練好的權重，做 forward 預測即可，不需要做 loss.backward() 或梯度更新，所以可以不指定 loss function。
-    out = learn.test(dls.test, weight_path=weight_path, scores=[mse, mae])  # 第三階段：載入 .pth 權重
+    out = learn.test(dls.test, weight_path=weight_path, scores=[mse,  rmse, mae, r2_score])  # 第三階段：載入 .pth 權重
                                                                             # out: a list of [pred, targ, score_values]
                                                                             # preds: 模型預測出來的值。
                                                                             # targs = target（也就是 "ground truth"），測試資料中的「實際答案」。
@@ -267,97 +258,6 @@ def test_func():
     # dls.test.dataset # 〔備用〕如果需要還原實際值
 
 
-def plot_feature_actual_vs_predicted(actual, predicted, feature_idx):
-    """
-    Plot the actual vs predicted values for a specific feature for the first sequence.
-    將每個特徵畫圖，繪製實際值與預測值圖表，用於觀察預測表現。
-
-    Parameters: （紅色：預測、藍色：真實）
-    - actual (np.array or torch.Tensor): Array of actual values. 真實目標資料
-    - predicted (np.array or torch.Tensor): Array of predicted values. 預測出來的資料
-    - feature_idx (int): Index of the feature to plot. 特徵索引
-    """
-
-    # 如果是 tensor，先轉成 numpy
-    if isinstance(actual, torch.Tensor):
-        actual = actual.cpu().numpy()
-    if isinstance(predicted, torch.Tensor):
-        predicted = predicted.cpu().numpy()
-    
-    # 【1】 Flatten (batch_size, 1, 1) → (batch_size,)
-    actual_flat = actual.reshape(-1)
-    predicted_flat = predicted.reshape(-1)
-
-    # 【2】 Select the first sequence for the given feature index （畫第 0 筆資料中，第 feature_idx 個特徵的所有時間點。）
-    # 取出三維張量中特定序列與特徵的預測結果。假設資料維度為 actual.shape = (batch_size, target_points, num_features) 
-    # 舉例：actual.shape = (64, 96, 7)，有 64 條不同序列、每條序列預測 96 個時間點、每個時間點包含 7 個特徵。
-    # actual_feature = actual[0, :, feature_idx] # 選擇第 1 條序列（通常我們只拿來視覺化其中一筆），取出這筆序列的 所有時間步（96 個點），取出指定的某個特徵。
-    # predicted_feature = predicted[0, :, feature_idx] # 畫第 0 筆資料中，第 feature_idx 個特徵的所有時間點。
-
-    # 【3】 對「所有 batch 的同一個特徵」在每個時間點上進行平均，表示「平均趨勢線」，得到「這個特徵的整體預測趨勢 vs 真實趨勢」。
-    #actual_feature = np.mean(actual[: , : ,feature_idx ], axis=0 )
-    #predicted_feature = np.mean(predicted[: , : ,feature_idx ], axis=0)
-
-    # 繪圖 Plot the first sequence
-    plt.figure(figsize=(10, 6))
-    plt.plot(range(len(actual_flat)), actual_flat, label="Actual (Ground Truth)", color='blue', marker='o', markersize=2, linestyle='-') # plt.plot(actual_feature, label="Actual", color='blue')
-    plt.plot(range(len(predicted_flat)), predicted_flat, label="Predicted", color='red', marker='x', markersize=2, linestyle='--') # plt.plot(predicted_feature, label="Predicted", color='red', linestyle='--')
-    plt.title(f"Actual vs Predicted Fish Weight (All Test Data)")
-    plt.xlabel("Sample Index")
-    plt.ylabel("Fish Weight")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
-
-
-def save_lr_curve_from_csv(csv_path: str, out_dir: str, f_name: str = 'Learning_Curve'):
-    df = pd.read_csv(csv_path)
-    plt.figure(figsize=(12, 6))
-    plt.plot(df['train_loss'], label='Train Loss', marker='o', markersize=4)
-    plt.plot(df['valid_loss'], label='Validation Loss', marker='s', markersize=4)
-
-    for i, value in enumerate(df['train_loss']):
-        if i % 10 == 0:
-            plt.annotate(f'{value:.4f}', xy=(i, value), xytext=(0, 5), textcoords='offset points', ha='center', fontsize=10, color='blue', alpha=0.8)
-    for i, value in enumerate(df['valid_loss']):
-        if i % 10 == 0:
-            plt.annotate(f'{value:.4f}', xy=(i, value), xytext=(0, -10), textcoords='offset points', ha='center', fontsize=10, color='orange', alpha=0.8)
-
-    plt.title(f'{f_name} (Model Loss)')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
-
-    save_path = os.path.join(out_dir, f'{f_name}.png')
-    plt.savefig(save_path, bbox_inches='tight')
-    plt.close()
-    print(f"Learning curve saved to {save_path}")
-
-
-def save_arguments(out_dir, args):
-    """
-    將 args（可以是 argparse.Namespace 或 dict）儲存為 JSON 格式，
-    存在指定的 out_dir 路徑下，檔名為 params.json。
-    """
-    os.makedirs(out_dir, exist_ok=True)  # 若資料夾不存在則建立
-    path_arguments = os.path.join(out_dir, 'params.json')
-
-    # 將 Namespace 轉為 dict（若已是 dict 就直接使用）
-    if hasattr(args, '__dict__'):
-        args_dict = vars(args)
-    else:
-        args_dict = args
-
-    with open(path_arguments, mode="w") as f:
-        json.dump(args_dict, f, indent=4)
-
-    print(f"✅ 已儲存參數至 {path_arguments}")
-
-
-
 if __name__ == '__main__':
 
     if args.is_train: # 執行訓練流程
@@ -365,9 +265,9 @@ if __name__ == '__main__':
         suggested_lr = find_lr() # 自動尋找最適學習率
         args.suggested_lr = suggested_lr  # 將學習率加進參數紀錄
         print('suggested lr:', suggested_lr)
-        save_arguments("results", configs) # 儲存訓練參數。
+        save_arguments(args.save_path, configs) # 儲存訓練參數。
         train_func(suggested_lr) # 執行訓練
-        save_lr_curve_from_csv('results/epoch_log.csv', 'results', f_name='Learning_Curve') # 繪製 Learning Curve
+        save_lr_curve_from_csv(os.path.join(args.save_path, 'epoch_log.csv'), args.save_path, f_name=f'{args.dset} Learning Curve') # 繪製 Learning Curve
 
     else:  # testing mode 執行測試與可視化
         # 1.) 呼叫 test_func()，得到 out = [pred, targ, score_values]。
@@ -383,6 +283,9 @@ if __name__ == '__main__':
         # targ = dataset.target_scaler.inverse_transform(out[1].reshape(-1, 1)).reshape(out[1].shape) # 正確答案（真實的 fish_weight）
 
         # 預測只要針對 fish_weight 進行畫圖
-        plot_feature_actual_vs_predicted(actual=out[1], predicted=out[0], feature_idx=0) 
+        plot_feature_actual_vs_predicted(actual=out[1], predicted=out[0], out_dir=args.save_path)
+        plot_error_histogram(actual=out[1], predicted=out[0], out_dir=args.save_path)
+        plot_residuals(actual=out[1], predicted=out[0], out_dir=args.save_path)
+        save_yy_plot(actual=out[1], predicted=out[0], out_dir=args.save_path)
 
     print('----------- Complete! -----------')
