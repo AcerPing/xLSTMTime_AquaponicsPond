@@ -571,6 +571,9 @@ class Dataset_Aquaponics (Dataset):
         self.data_x = data_x[border1:border2]  # 標準化後的特徵資料。
         self.data_y = data_y[border1:border2]  # 標準化後的目標資料。        
 
+        # 將scale後的數值輸出，進行核對。
+        # pd.DataFrame(data_x, columns=feature_cols).to_csv("scaled_feature_data.csv", index=False)
+        # pd.DataFrame(data_y, columns=[self.target]).to_csv("scaled_target_data.csv", index=False)
 
         # TODO: 處理時間欄位（self.data_stamp）
         # always convert created_at to datetime (基本動作)
