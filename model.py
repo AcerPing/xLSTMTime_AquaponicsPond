@@ -30,7 +30,8 @@ config = xLSTMBlockStackConfig(
         
         _block_map = 1, # 很可能代表使用「交替架構」：sLSTM、mLSTM、sLSTM（或類似順序） # ??
 
-        #slstm_at="all", # 在 xLSTM block stack 的所有層中都使用 sLSTM block。
+        #slstm_at="all", # 開啟後會錯 RuntimeError: Error building extension 'slstm_HS128BS8NH4NS4DBfDRbDWbDGbDSbDAfNG4SA1GRCV0GRC0d0FCV0FC0d0'
+                        # 在 xLSTM block stack 的所有層中都使用 sLSTM block。
                         # 所有層都用 sLSTMBlock（不使用 mLSTMBlock）。
         context_length=1440,
     )

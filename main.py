@@ -54,17 +54,16 @@ parser = argparse.ArgumentParser() # 解析命令列參數（Command-line argume
 parser.add_argument('--is_train', type=int, default=0, help='training the model') # ✅ 控制是否訓練或測試。( 1: train, 0: test ) 
 parser.add_argument('--context_points', type=int, default=1440, help='sequence length') # ✅ 輸入序列長度。 # * 1440 
 parser.add_argument('--target_points', type=int, default=1, help='forecast horizon') # ✅ 預測序列長度、預測步數。 # * 1
-parser.add_argument('--batch_size', type=int, default=128, help='batch size') # ✅ DataLoader批次大小，在 get_dls() 會用到。  # -- 64, 656
-parser.add_argument('--lr', type=float, default=1e-4, help='learning rate') # ✅ 學習率
+parser.add_argument('--batch_size', type=int, default=128, help='batch size') # ✅ DataLoader批次大小，在 get_dls() 會用到。  # -- 64, 128, 656
+parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # ✅ 學習率
                                                                             # -- 'FishAquaponics_IoTpond2': 1e-5；'FishAquaponics_IoTpond3': 1e-4；'FishAquaponics_IoTpond4': 1e-4
 
-parser.add_argument('--dset', type=str, default='aquaponics', help='dataset name') # ✅ 資料集名稱（如 ettm1） 
+parser.add_argument('--dset', type=str, default='aquaponics IoTPond2', help='dataset name') # ✅ 資料集名稱（如 ettm1） 
 parser.add_argument('--model_name', type=str, default='xLSTMTime', help='model_name') # ✅ 模型命名，在 args.save_model_name 會用到。 
 
 parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # ✅ 模型版本號（便於存檔），在 args.save_model_name 會用到。
 # Optimization args
 parser.add_argument('--n_epochs', type=int, default=100, help='number of training epochs') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
-parser.add_argument('--pct_start', type=float, default=0.2, help='有多少比例的n_epochs用於「學習率從初始值提升到最高值」') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
 parser.add_argument('--n2', type=int, default=128, help='Second Embedded representation') # ✅ 要傳入 xLSTMBlockStack 的嵌入維度（可理解為 embedding_dim），用在 model.py。 
 
 parser.add_argument('--use_time_features', type=int, default=0, help='whether to use time features or not') # ✅ 是否加入時間欄位特徵，用在 datautils.py。 # * 0, False
@@ -87,7 +86,7 @@ parser.add_argument('--residual', type=int, default=1, help='Residual Connection
 # parser.add_argument('--n_layers', type=int, default=3, help='number of Transformer layers') # ❌
 # parser.add_argument('--d_model', type=int, default=256, help='Transformer d_model') # ❌
 parser.add_argument('--head_dropout', type=float, default=0, help='head dropout') # 沒有實際實作❌
-parser.add_argument('--dropout', type=float, default=0.2, help='Transformer dropout')
+parser.add_argument('--dropout', type=float, default=0.2, help='Dropout')
 # parser.add_argument('--d_ff', type=int, default=256, help='Tranformer MLP dimension')
 # parser.add_argument('--n_heads', type=int, default=16, help='number of Transformer heads')
 # parser = argparse.ArgumentParser(description='Swin Transformer training and evaluation script', add_help=False)
@@ -108,6 +107,7 @@ parser.add_argument('--scaler', type=str, default='minmax', help='scale the inpu
 # patch補丁：把一整段長時間序列，切成一小段一小段的區塊（時間片段）來處理。
 # -- parser.add_argument('--patch_len', type=int, default=12, help='patch length') # 每段看多長。 目前未啟用 PatchCB。❌
 # -- parser.add_argument('--stride', type=int, default=12, help='stride between patch') # 每次滑動多少秒 目前未啟用 PatchCB。 ❌
+# -- parser.add_argument('--pct_start', type=float, default=0.2, help='有多少比例的n_epochs用於「學習率從初始值提升到最高值」') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
 
 args = parser.parse_args()
 print('args:', args)
@@ -169,7 +169,7 @@ def find_lr():
     model = get_model(dls.vars, args)
 
     # get loss -> 做小型的「訓練」，計算 loss 曲線。
-    # Ex. loss_func=combined_loss
+    # Ex. loss_func = combined_loss
     # -- loss_func = torch.nn.L1Loss(reduction='mean') # MAE（Mean Absolute Error）。
     loss_func = torch.nn.MSELoss(reduction='mean') # MSE（Mean Square Error）。
     
@@ -208,8 +208,6 @@ def train_func(lr=args.lr):
                                                     # args.revin => 判斷是否啟用 RevIN 功能。
                                                     # RevInCB(dls.vars) => 建立一個 RevIN Callback 實例，傳入變數資訊。
                                                     # 在 輸入前 對資料做 normalization，在 模型輸出後 還原（denormalize）預測值。
-    post_peak_epochs = int(args.n_epochs * (1 - args.pct_start))
-    patient = max(10, int(post_peak_epochs * 0.6))
     cbs += [
         #PatchCB(patch_len=args.patch_len, stride=args.stride), # Patch-based 時間序列切片
         SaveModelCB(monitor='valid_loss', min_delta=0.001, fname=args.save_model_name, path=args.save_path), # 建立保存模型的callback，在訓練過程中自動儲存最佳模型權重檔（.pth）。
@@ -217,7 +215,7 @@ def train_func(lr=args.lr):
                                                                                            # 設定 儲存的檔名 與 儲存的資料夾路徑。
                                                                                            # * 設 min_delta=0.001 或 0.002 會讓模型儲存更謹慎，僅在有意義的進步時更新最佳檔案。
         CSVLogger(save_dir=args.save_path, filename='epoch_log.csv'),  # 將訓練過程中每一個epoch的損失與評估指標儲存為 .csv 檔
-        EarlyStoppingCB(monitor='valid_loss', min_delta=0.001, patient=patient) # 早停法，避免過擬合。
+        EarlyStoppingCB(monitor='valid_loss', min_delta=0.000001, patient=25) # 早停法，避免過擬合。
                                                                                 # 由於有使用fit_one_cycle，因此 patient 要設大一點，例如 patient = 10~20。
     ]
 
@@ -229,7 +227,7 @@ def train_func(lr=args.lr):
                     )
 
     # fit the data to the model
-    learn.fit_one_cycle(n_epochs=args.n_epochs, lr_max=lr, pct_start=args.pct_start) # 使用 fit_one_cycle 進行訓練，先提高學習率再慢慢降低，先升高 → 達到高峰 → 再慢慢下降。
+    learn.fit_one_cycle(n_epochs=args.n_epochs, lr_max=lr, pct_start=0.2) # 使用 fit_one_cycle 進行訓練，先提高學習率再慢慢降低，先升高 → 達到高峰 → 再慢慢下降。
 
 
 def test_func():
@@ -268,7 +266,6 @@ if __name__ == '__main__':
 
         suggested_lr = find_lr() # 自動尋找最適學習率
         args.suggested_lr = suggested_lr  # 將學習率加進參數紀錄
-        print('suggested lr:', suggested_lr)
         save_arguments(args.save_path, configs) # 儲存訓練參數。
         train_func(suggested_lr) # 執行訓練
         save_lr_curve_from_csv(os.path.join(args.save_path, 'epoch_log.csv'), args.save_path, f_name=f'{args.dset} Learning Curve') # 繪製 Learning Curve
