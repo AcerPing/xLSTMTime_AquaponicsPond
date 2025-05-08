@@ -33,9 +33,17 @@ class Callback(GetAttr):
 
 
 class SetupLearnerCB(Callback): 
+    """
+    模型與資料搬到 GPU 的自動工具
+    1.) 在訓練開始前, 把模型搬到GPU。
+    2.) 在每個 batch 開始前，把資料 batch 搬到 GPU (或指定的 device)。
+    3.) 確保 learner 自己的 batch 屬性裝好 (xb, yb)，供後續使用。
+    """
     def __init__(self):        
-        self.device = default_device(use_cuda=True)
+        self.device = default_device(use_cuda=True) # 檢查你電腦有沒有 CUDA（NVIDIA GPU）。
 
+    # 每次 batch 開始時，不論是訓練、驗證、預測、測試，都先呼叫 _to_device()。
+    # 這確保你的 batch 資料（通常是 tensor）會搬到 GPU 上執行，而不是卡在 CPU。
     def before_batch_train(self): self._to_device()
     def before_batch_valid(self): self._to_device()
     def before_batch_predict(self): self._to_device()
@@ -49,16 +57,20 @@ class SetupLearnerCB(Callback):
                 xb = batch[0]
                 yb = batch[1] if len(batch) > 1 else None
             else:
-                xb, yb = batch, None
+                xb, yb = batch, None # 如果只有單一 input，直接裝到 xb，yb 設為 None。
         except ValueError as e:
             #print(f"Error unpacking batch: {e}")
             raise e
-        self.learner.batch = xb, yb
+        self.learner.batch = xb, yb # 最後存進 self.learner.batch，讓後面的運算知道要用哪個 input 與 target。
 
 
         
     def before_fit(self): 
-        "Set model to cuda before training"                
+        """
+        Set model to cuda before training
+        把模型 .to(self.device) → 丟到 GPU 或 CPU。
+        同時把 device 記到 learner 裡，後續可以用。
+        """
         self.learner.model.to(self.device)
         self.learner.device = self.device                        
 

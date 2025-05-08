@@ -68,6 +68,9 @@ class OneCycleLR(Callback):
 
 
 class LRFinderCB(Callback):
+    """
+    從很小的學習率(start_lr)開始, 持續逐步調高到end_lr, 每一個batch記錄loss,  找出學習率vs.loss的關係圖, 幫助判斷最適合的學習率。
+    """
     def __init__(self, start_lr=1e-7, end_lr=10, num_iter=100, step_mode='exp', beta=0.98, suggestion='valley'): # exp (ExponentialLR) → 指數式增加學習率；linear → 線性增加學習率。
         self.start_lr, self.end_lr = start_lr, end_lr
         self.num_iter = num_iter
@@ -77,53 +80,53 @@ class LRFinderCB(Callback):
         self.suggestion = suggestion
 
     def before_fit(self):        
-        self.losses, self.lrs = [], []
+        self.losses, self.lrs = [], [] # 初始化 loss、learning rate 紀錄器。
         self.best_loss, self.aver_loss = inf, 0 
         self.train_iter = 0
 
-        # save model to load back after fitting 
+        # save model to load back after fitting 把當前模型儲存起來
         self.temp_path = self.save('current', 'temp/', with_opt=False)  
 
-        # set base_lr for the optimizer
+        # set base_lr for the optimizer 設定初始學習率
         self.set_lr(self.start_lr)
 
         # check num_iter 
         if not self.num_iter: self.num_iter = len(self.dls.train)
         # if self.num_iter > len(self.dls.train): self.num_iter = len(self.dls.train)
 
-        # Initialize the proper learning rate policy
-        if self.step_mode.lower() == "exp":
+        # Initialize the proper learning rate policy 決定學習率
+        if self.step_mode.lower() == "exp": # 指數式成長
             self.scheduler = ExponentialLR(self.opt, self.end_lr, self.num_iter)
-        elif self.step_mode.lower() == "linear":
+        elif self.step_mode.lower() == "linear": # 線性成長
             self.scheduler = LinearLR(self.opt, self.end_lr, self.num_iter)
                 
     def after_batch_train(self):        
         self.train_iter += 1
-        self.scheduler.step()
-        self.lrs.append( self.scheduler.get_last_lr()[0] )             
+        self.scheduler.step() # 更新學習率
+        self.lrs.append( self.scheduler.get_last_lr()[0] ) # 記錄當前 lr
         
         # update smooth loss
-        self.smoothing(self.beta)
+        self.smoothing(self.beta) # 平滑更新 loss
         if self.smoothed_loss < self.best_loss: self.best_loss = self.smoothed_loss
         #Stop if the loss is exploding
-        if self.smoothed_loss > 4 * self.best_loss: 
+        if self.smoothed_loss > 4 * self.best_loss: # 如果 loss 爆炸（大於 4 倍 best_loss）就用 KeyboardInterrupt 強制結束。
             raise KeyboardInterrupt # stop fit method
-        if self.train_iter > self.num_iter: 
+        if self.train_iter > self.num_iter: # 如果 超過預定 num_iter，就用 KeyboardInterrupt 強制結束。
             raise KeyboardInterrupt # stop fit method
             
     def smoothing(self, beta):        
         # Smooth the loss if beta is specified        
-        self.aver_loss = beta * self.aver_loss + (1-beta) *self.loss.detach().item()          
+        self.aver_loss = beta * self.aver_loss + (1-beta) *self.loss.detach().item() # 用 beta 做滑動平均，計算平滑 loss。
         self.smoothed_loss = self.aver_loss / (1 - beta**self.train_iter)                   
         self.losses.append(self.smoothed_loss)
 
     def after_fit(self):        
         # reset the gradients
-        self.learner.opt.zero_grad()            
-        if self.suggestion == 'valley':
+        self.learner.opt.zero_grad() # 重置 optimizer
+        if self.suggestion == 'valley': # 根據 suggestion（通常是 'valley'），找出推薦的最佳學習率
             self.suggested_lr = valley(self.lrs, self.losses)
         # load back the model at the previous state
-        self.load(self.temp_path)     
+        self.load(self.temp_path) # 載入之前存好的 self.temp_path，還原到未改動的模型狀態。
 
     def set_lr(self, lrs):
         if not isinstance(lrs, list): lrs = [lrs] * len(self.opt.param_groups)
@@ -139,6 +142,7 @@ class LRFinderCB(Callback):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1,1)
         ax.plot(self.lrs, self.losses)
+        plt.title('Learning Rate Finder')
         ax.set_ylabel("Loss")
         ax.set_xlabel("Learning Rate")
         ax.set_xscale('log')

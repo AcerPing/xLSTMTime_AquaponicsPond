@@ -380,8 +380,10 @@ class Learner(GetAttr):
         self.fit(n_epochs=n_epochs, cbs=cb, do_valid=False) # 跑一個小的訓練階段，不跑驗證（do_valid=False），
         # should remove LRFinderCB callback after fitting                
         self.remove_callback(cb) # 跑完之後，把 LRFinderCB 移除，回到正常狀態。
-        self.run_finder = False        
-        if show_plot: cb.plot_lr_find() # 畫出「學習率 vs loss」的曲線圖。
+        self.run_finder = False
+        if show_plot: 
+            cb.plot_lr_find() # 畫出「學習率 vs loss」的曲線圖。
+            plt.show() #  x 軸 → 學習率（Learning Rate）； y 軸 → 對應的 Loss。
         if suggestion: return cb.suggested_lr # 回傳建議的學習率。
         
         

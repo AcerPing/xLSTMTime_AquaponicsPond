@@ -71,8 +71,9 @@ def to_device(b, device=None, non_blocking=False):
     """
     Recursively put `b` on `device`
     components of b are torch tensors
+    把資料搬到指定的裝置（如 CPU 或 GPU)
     """
-    if device is None: 
+    if device is None: # 如果沒指定 device，就用 default_device() 來抓預設值，
         device = default_device(use_cuda=True)
 
     if isinstance(b, dict):
