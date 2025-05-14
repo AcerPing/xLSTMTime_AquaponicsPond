@@ -97,7 +97,7 @@ class LRFinderCB(Callback):
         # Initialize the proper learning rate policy 決定學習率
         if self.step_mode.lower() == "exp": # 指數式成長
             self.scheduler = ExponentialLR(self.opt, self.end_lr, self.num_iter)
-        elif self.step_mode.lower() == "linear": # 線性成長
+        elif self.step_mode.lower() == "linear": # 線性成長 # ! 會有錯誤，ValueError: Input contains NaN.
             self.scheduler = LinearLR(self.opt, self.end_lr, self.num_iter)
                 
     def after_batch_train(self):        
