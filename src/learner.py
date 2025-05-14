@@ -1,7 +1,7 @@
 
 from typing import List
 import torch
-from torch.optim import Adam # -- SGD, RMSprop, Adadelta, Adagrad, RMSprop
+from torch.optim import Adam, AdamW # -- SGD, RMSprop, Adadelta, Adagrad, RMSprop
 from torch import nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.cuda.amp import GradScaler, autocast
@@ -19,6 +19,7 @@ import numpy as np
 
 from sklearn.base import BaseEstimator
 from unittest.mock import patch
+import matplotlib.pyplot as plt
 
 
 class Learner(GetAttr):
@@ -36,11 +37,13 @@ class Learner(GetAttr):
                         lr=1e-3, 
                         cbs=None, 
                         metrics=None, 
-                        opt_func=Adam,
+                        opt_func=AdamW, # -- Adam, AdamW 
+                        weight_decay=1e-3, 
                         **kwargs): # 初始化資料集、模型、Loss、Optimizer、Callbacks
                 
         self.model, self.dls, self.loss_func, self.lr = model, dls, loss_func, lr
         self.opt_func = opt_func # Adam
+        self.weight_decay = weight_decay
         self.set_opt()
         self.metrics = metrics
         self.n_inp  = 2 # (x, y) 兩個元素，x 是 input（features 特徵）、y 指的是 ground truth（真實 y），
@@ -55,24 +58,30 @@ class Learner(GetAttr):
 
     def set_opt(self):
         if self.model:
-            self.opt = self.opt_func(self.model.parameters(), self.lr) # 設定 optimizer 優化器
+            # 設定 optimizer 優化器。
+            print(f"✅ Setting optimizer with lr={self.lr}, weight_decay={self.weight_decay}")
+            self.opt = self.opt_func(self.model.parameters(), self.lr, weight_decay=self.weight_decay) # 用Adam做優化，用指定的學習率，並在每次梯度更新時自動對權重引入L2正則化。 # -- 1e-2
         else: self.opt = None
 
 
     def default_callback(self):
         "get a set of default callbacks"
-        default_cbs = [ SetupLearnerCB(), TrackTimerCB(), 
-                        TrackTrainingCB(train_metrics=False, valid_metrics=True)]                  
+        default_cbs = [ SetupLearnerCB(), # 設置 Learner，初始化與配置用
+                        TrackTimerCB(), # 記錄訓練花費的時間
+                        TrackTrainingCB(train_metrics=False, valid_metrics=True) #  在每個 epoch 結束後記錄驗證集的 metric。
+                        ]                  
         return default_cbs
     
 
-    def initialize_callbacks(self, cbs):        
-        default_cbs = self.default_callback()       
-        self.cbs = update_callbacks(cbs, default_cbs) if cbs else default_cbs        
-        # add print CB
-        self.cbs += [PrintResultsCB()]        
-        for cb in self.cbs: cb.learner = self     
-        self('init_cb')       
+    def initialize_callbacks(self, cbs):
+        """
+        在 Learner 初始化時，把所有 callbacks 完整組裝好並連結到 Learner 身上。
+        """
+        default_cbs = self.default_callback() # 取得預設callbacks，拿到預設組（例如 SetupLearnerCB、TrackTimerCB、TrackTrainingCB）。
+        self.cbs = update_callbacks(cbs, default_cbs) if cbs else default_cbs # 合併使用者傳入的cbs。如果使用者有傳入自訂cbs，就把它們和預設的default_cbs合併；如果沒傳，就只用預設的。
+        self.cbs += [PrintResultsCB()] # add print CB 在終端機印出 epoch 訓練結果表格。
+        for cb in self.cbs: cb.learner = self # 把 Learner 指派給每個 callback
+        self('init_cb') # 〔觸發點〕呼叫所有 callback 的初始化
 
 
     def add_callback(self, cb):
@@ -124,11 +133,13 @@ class Learner(GetAttr):
     def fit_one_cycle(self, n_epochs, lr_max=None, pct_start=0.3): 
         """
         One Cycle Learning Rate(OneCycleLR): 學習率策略，「先提高學習率再慢慢降低」的學習率變化方式，幫助模型走出困境區、找到更好的參數組合。
+        -- lr_max → 這輪訓練中最高學習率，如果沒指定就用預設 self.lr。
+        -- pct_start 是指訓練週期中，有多少比例的 epoch 用於「學習率從初始值提升到最高值」。例如 pct_start=0.3 就是前 30% 時間往上爬，後 70% 慢慢降。
         """
         self.n_epochs = n_epochs        
         self.lr_max = lr_max if lr_max else self.lr
         cb = OneCycleLR(lr_max=self.lr_max, pct_start=pct_start)
-        self.fit(self.n_epochs, cbs=cb)                
+        self.fit(self.n_epochs, cbs=cb) # 主訓練迴圈
          
          
     def one_epoch(self, train):                           
@@ -303,6 +314,8 @@ class Learner(GetAttr):
         
         # calculate scores 計算分數
         if scores: # 如果有提供 scores（像是 MSE、MAE函數列表）
+            s_names = [score_func.__name__ for score_func in scores] # 取得函數名稱（例如 'mse'）
+            print(f'Metrics 函數名稱: {s_names}')
             s_vals = [score(cb.targets, cb.preds).to('cpu').numpy() for score in list(scores)] # 計算每個指標
             return self.preds, self.targets, s_vals # * 回傳：預測值、真實值、評分值
         else: return self.preds, self.targets
@@ -526,6 +539,10 @@ def update_callback(cb, list_cbs):
     return list_cbs
 
 def update_callbacks(list_cbs, default_cbs):
+    """
+    把 使用者傳入的 callback 列表 (list_cbs) 逐一和 預設 callback 列表 (default_cbs) 做比對更新。
+    換句話說，如果使用者傳入了一個 同類型的 callback, 就會用使用者的覆蓋掉預設的，否則就直接加入新的 callback。
+    """
     for cb in list_cbs: default_cbs = update_callback(cb, default_cbs)
     return default_cbs
 
