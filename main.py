@@ -59,6 +59,7 @@ parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # �
                                                                             # -- 'FishAquaponics_IoTpond2': 1e-5；'FishAquaponics_IoTpond3': 1e-4；'FishAquaponics_IoTpond4': 1e-4
 
 parser.add_argument('--dset', type=str, default='aquaponics IoTPond2', help='dataset name') # ✅ 資料集名稱（如 ettm1） 
+                                                                                            # -- 'aquaponics IoTPond2', 'aquaponics IoTPond3', 'aquaponics IoTPond4', 'aquaponics IoTPond1'
 parser.add_argument('--model_name', type=str, default='xLSTMTime', help='model_name') # ✅ 模型命名，在 args.save_model_name 會用到。 
 
 parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # ✅ 模型版本號（便於存檔），在 args.save_model_name 會用到。
@@ -147,7 +148,7 @@ def get_model(c_in, args):
     return model
 
 
-def combined_loss(input, target, alpha=0.5): # * 沒有用到
+def combined_loss(input, target, alpha=0.5):
     """
     A combined loss function that computes a weighted sum of MSELoss and L1Loss.
     `alpha` is the weight for MSELoss and (1-alpha) is the weight for L1Loss.
@@ -172,6 +173,7 @@ def find_lr():
     # Ex. loss_func = combined_loss
     # -- loss_func = torch.nn.L1Loss(reduction='mean') # MAE（Mean Absolute Error）。
     loss_func = torch.nn.MSELoss(reduction='mean') # MSE（Mean Square Error）。
+    print(f'find_lr.loss_func: {loss_func}')
     
     # get callbacks
     cbs = [RevInCB(dls.vars)] if args.revin else [] # 使用 callback 記錄訓練過程 
@@ -199,9 +201,10 @@ def train_func(lr=args.lr):
     #model = get_model(dls.vars, args, model_type)
 
     # get loss -> 訓練過程中，模型要計算 loss 來更新權重（backpropagation），必須知道怎麼計算 loss！
-    # Ex. loss_func=combined_loss 或 loss_func = HuberLoss(delta = 0.25)
+    # Ex. loss_func = combined_loss 或 loss_func = HuberLoss(delta = 0.25)
     # -- loss_func = torch.nn.L1Loss(reduction='mean') # MAE（Mean Absolute Error）。
     loss_func = torch.nn.MSELoss(reduction='mean') # MSE（Mean Square Error）。
+    print(f'train_func.loss_func: {loss_func}')
 
     # get callbacks
     cbs = [RevInCB(dls.vars)] if args.revin else [] # 使用 callback 記錄訓練過程 
