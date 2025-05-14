@@ -7,10 +7,12 @@ import sys
 from src.data.datamodule import DataLoaders
 from src.data.pred_dataset import *
 
-DSETS = ['ettm1', 'aquaponics'] # 替換不同資料集。
+DSETS = ['ettm1', 
+         'aquaponics', 'aquaponics IoTPond2', 'aquaponics IoTPond3', 'aquaponics IoTPond4', 'aquaponics IoTPond1',
+        ] # 替換不同資料集。
 
 # 1. ettm1 -> ETT 系列資料（電力需求、負載）
-# 2. aquaponics -> 〔養殖〕魚菜共生數據及
+# 2. aquaponics -> 〔養殖〕魚菜共生數據集
 
 def get_dls(params):
     
@@ -39,14 +41,22 @@ def get_dls(params):
                 ) # 給定 Dataset 所需的參數，包括資料檔名、標準化、是否加入時間特徵（如小時、週期）、資料切分長度（size），最後交由 DataLoaders() 包裝成 PyTorch 用的訓練與測試資料迭代器。
 
 
-    elif params.dset == 'aquaponics':
+    elif 'aquaponics' in params.dset:
         root_path = 'datasets/aquaponics/'
         size = [params.context_points, 0, params.target_points] # 參考過去 1440 筆數據來預測下一筆資料。 # * context_points=1440, target_points=1
+
+        # 根據 dset 名稱對應到正確的檔案
+        if params.dset == 'aquaponics IoTPond2': data_file = 'cleaned_IoTPond2.csv'
+        elif params.dset == 'aquaponics IoTPond3': data_file = 'cleaned_IoTPond3.csv'
+        elif params.dset == 'aquaponics IoTPond4': data_file = 'cleaned_IoTPond4.csv'
+        elif params.dset == 'aquaponics IoTPond1': data_file = 'cleaned_IoTPond1.csv'
+        else: raise ValueError(f"❌ 未知的 aquaponics 資料集名稱: {params.dset}") # 值無效或不符合預期
+
         dls = DataLoaders(
                 datasetCls=Dataset_Aquaponics, 
                 dataset_kwargs={
                 'root_path': root_path,
-                'data_path': 'cleaned_IoTPond2.csv',
+                'data_path': data_file,
                 'features': params.features, # * MS
                 'scale': True,
                 'size': size, # * [1440, 0, 1]
@@ -67,7 +77,7 @@ def get_dls(params):
 
 if __name__ == "__main__":
     class Params:
-        dset= 'aquaponics'
+        dset= 'aquaponics' # params.dset
         context_points= 1440
         target_points= 1
         batch_size= 128
