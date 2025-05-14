@@ -112,8 +112,10 @@ class xlstm(torch.nn.Module):
         # 模型參數記錄
         self.configs = configs
         self.enc_in = enc_in # 輸入特徵數量，也就是原始資料的欄位數（features）
+
         self.batch_norm = nn.BatchNorm1d(self.enc_in) # 建立一層 一維 Batch Normalization 層，並且根據輸入特徵數設置。
                                                       # 對每個特徵維度做批次正規化，幫助模型訓練更快 且 避免梯度爆炸或消失。
+        self.layer_norm = nn.LayerNorm(normalized_shape=self.configs.n2)
 
         # 〔分解模組〕
         # Decompsition Kernel Size （分解卷積核尺寸），將複雜的資料或結構分成較小的部分來處理。
@@ -180,7 +182,8 @@ class xlstm(torch.nn.Module):
         if verbose: print(f'mm線性轉換: {x.shape} \n') # 形狀為 (batch_size, features, embedding_dim) # --用於研究
 
         
-        x = self.batch_norm(x) # 可視為前處理，對每個feature channel做標準化，有可能提升模型穩定性與收斂效果，但需依任務特性測試確認，補強模型訓練初期的穩定性。
+        # -- x = self.batch_norm(x) # 可視為前處理，對每個feature channel做標準化，有可能提升模型穩定性與收斂效果，但需依任務特性測試確認，補強模型訓練初期的穩定性。
+        x = self.layer_norm(x)
     
         x = self.xlstm_stack(x) # 傳入 xLSTMBlockStack（核心 block），形狀為(batch_size, features, embedding_dim)
         if verbose: print(f'經過xLSTM特徵提取與時序建模: {x.shape} \n') # --用於研究
