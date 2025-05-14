@@ -1,0 +1,70 @@
+**/__pycache__/ 
+*.py[cod]
+temp/current.pth
+
+
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+# 忽略整個 results 目錄
+results/** 
+
+# 解除忽略（每一層都要解鎖）
+!results/Aquaponics Record 歷程訓練記錄/
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/
+#--------------------------------------------------------------------------------------------------
+# ✅ IoTPond2（例外保留）
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/★ 2025-05-07-1（設定Learning Rate為1e-4，為目前最佳）★/
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/★ 2025-05-07-1（設定Learning Rate為1e-4，為目前最佳）★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/★ aquaponics_IoTPond2-1 ★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/★ aquaponics_IoTPond2-1 ★/**
+#--------------------------------------------------------------------------------------------------
+# ✅ IoTPond3（例外保留）
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★ 2025-05-10-3 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★ 2025-05-10-3 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★ aquaponics IoTPond3-4 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★ aquaponics IoTPond3-4 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★★ 2025-05-10-12 ★★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★★ 2025-05-10-12 ★★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★★ aquaponics IoTPond3-3 ★★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★★ aquaponics IoTPond3-3 ★★★/**
+#--------------------------------------------------------------------------------------------------
+# ✅ IoTPond4（例外保留）
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-11-1 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-11-1 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-11-4 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-11-4 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-14-3 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-14-3 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ aquaponics IoTPond4-1 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ aquaponics IoTPond4-1 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ aquaponics IoTPond4-2 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ aquaponics IoTPond4-2 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ aquaponics IoTPond4-5 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ aquaponics IoTPond4-5 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-14-2 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-14-2 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ aquaponics IoTPond4-4 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ aquaponics IoTPond4-4 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★★ 2025-05-14-5 ★★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★★ 2025-05-14-5 ★★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★★ aquaponics IoTPond4-6 ★★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★★ aquaponics IoTPond4-6 ★★★/**
