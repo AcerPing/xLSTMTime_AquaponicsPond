@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 import seaborn as sns
 import torch
-from sklearn.metrics import mean_squared_error as mse, mean_absolute_error as mae, r2_score
+from sklearn.metrics import mean_squared_error as mse, mean_absolute_error as mae, r2_score, explained_variance_score
 
 
 # plt.rcParams["font.size"] = 13 # matplotlib 字體設定
@@ -67,7 +67,8 @@ def save_metrics(actual: torch.Tensor, predicted: torch.Tensor, out_dir: str, mo
         'MAE': mae(actual, predicted), # 計算平均絕對誤差
         'MSE': mse(actual, predicted), # 計算均方誤差
         'RMSE': _rmse(mse(actual, predicted)), # RMSE
-        'R2_Score': r2_score(actual, predicted) # R-squared指標，反映模型解釋目標變數變異程度的能力。
+        'R2_Score': r2_score(actual, predicted), # R-squared指標，反映模型解釋目標變數變異程度的能力。
+        'Explained Variance Score': explained_variance_score(actual, predicted),
     }
 
     # Save as txt log

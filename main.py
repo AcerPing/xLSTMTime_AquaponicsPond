@@ -60,6 +60,7 @@ parser.add_argument('--lr', type=float, default=1e-3, help='learning rate') # �
 
 parser.add_argument('--dset', type=str, default='aquaponics IoTPond2', help='dataset name') # ✅ 資料集名稱（如 ettm1） 
                                                                                             # -- 'aquaponics IoTPond2', 'aquaponics IoTPond3', 'aquaponics IoTPond4', 'aquaponics IoTPond1'
+                                                                                            # -- 'IoT Monitoring Dataset of Water Quality and Tilapia'
 parser.add_argument('--model_name', type=str, default='xLSTMTime', help='model_name') # ✅ 模型命名，在 args.save_model_name 會用到。 
 
 parser.add_argument('--model_id', type=int, default=1, help='id of the saved model') # ✅ 模型版本號（便於存檔），在 args.save_model_name 會用到。
@@ -226,7 +227,7 @@ def train_func(lr=args.lr):
     learn = Learner(dls, model, loss_func,
                     lr=lr,
                     cbs=cbs,
-                    metrics=[mse, rmse, mae, r2_score]
+                    metrics=[mse, rmse, mae, r2_score, EVS_score]
                     )
 
     # fit the data to the model
@@ -253,7 +254,7 @@ def test_func():
 
     learn = Learner(dls, model, cbs=cbs) # 第二階段：建立 Learner 實例。
                                          # 測試時，只要載入訓練好的權重，做 forward 預測即可，不需要做 loss.backward() 或梯度更新，所以可以不指定 loss function。
-    out = learn.test(dls.test, weight_path=weight_path, scores=[mse,  rmse, mae, r2_score])  # 第三階段：載入 .pth 權重
+    out = learn.test(dls.test, weight_path=weight_path, scores=[mse,  rmse, mae, r2_score, EVS_score])  # 第三階段：載入 .pth 權重
                                                                             # out: a list of [pred, targ, score_values]
                                                                             # preds: 模型預測出來的值。
                                                                             # targs = target（也就是 "ground truth"），測試資料中的「實際答案」。
@@ -279,7 +280,7 @@ if __name__ == '__main__':
 
         out, learn_model = test_func() # out: a list of [pred, targ, score_values] & learn_model
 
-        metric_names = ['MSE', 'RMSE', 'MAE', 'R2 Score']
+        metric_names = ['MSE', 'RMSE', 'MAE', 'R2 Score', 'Explained Variance Score']
         print('score:', out[2]) # MSE和MAE的評估結果。
         metrics_df = pd.DataFrame({'Metric': metric_names, 'Value': out[2]})
         print(metrics_df.to_string(index=False))
