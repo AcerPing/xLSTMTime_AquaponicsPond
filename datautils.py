@@ -9,6 +9,7 @@ from src.data.pred_dataset import *
 
 DSETS = ['ettm1', 
          'aquaponics', 'aquaponics IoTPond2', 'aquaponics IoTPond3', 'aquaponics IoTPond4', 'aquaponics IoTPond1',
+         'IoT Monitoring Dataset of Water Quality and Tilapia',
         ] # 替換不同資料集。
 
 # 1. ettm1 -> ETT 系列資料（電力需求、負載）
@@ -40,6 +41,8 @@ def get_dls(params):
                 workers=params.num_workers, # 執行緒數
                 ) # 給定 Dataset 所需的參數，包括資料檔名、標準化、是否加入時間特徵（如小時、週期）、資料切分長度（size），最後交由 DataLoaders() 包裝成 PyTorch 用的訓練與測試資料迭代器。
 
+# ---------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
 
     elif 'aquaponics' in params.dset:
         root_path = 'datasets/aquaponics/'
@@ -65,8 +68,38 @@ def get_dls(params):
                 batch_size=params.batch_size, # * 656
                 workers=params.num_workers,
                 )
+
+# ---------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
  
- 
+    elif 'IoT Monitoring Dataset of Water Quality and Tilapia' in params.dset: #  判斷目前指定的資料集是否為 'ettm1'
+        root_path = 'datasets/Water Quality & Tilapia/' # 資料的資料夾路徑，表示原始的 ETTm1.csv 放在 datasets/ETT-small/ 裡。
+        size = [params.context_points, 0, params.target_points] # size 定義輸入輸出長度
+                                                                # context_points：輸入的歷史步數，例如過去 336 分鐘。
+                                                                # 0：預留（目前沒使用，通常是預測前的空窗）預設不使用，即模型直接根據過去的資料預測未來資料。
+                                                                # target_points：模型要預測未來幾點，例如未來 96 點。
+                                                                #  xLSTM 這種結構可以直接輸入 context → 預測 target，因此中間 label 可省略。
+        # 根據 dset 名稱對應到正確的檔案
+        if params.dset == 'IoT Monitoring Dataset of Water Quality and Tilapia_Segment01': data_file = 'IoT Monitoring Dataset of Water Quality and Tilapia_Segment01.csv'
+        elif params.dset == 'IoT Monitoring Dataset of Water Quality and Tilapia_Segment02': data_file = 'IoT Monitoring Dataset of Water Quality and Tilapia_Segment02.csv'
+        elif params.dset == 'IoT Monitoring Dataset of Water Quality and Tilapia_Segment03': data_file = 'IoT Monitoring Dataset of Water Quality and Tilapia_Segment03.csv'
+        else: raise ValueError(f"❌ 未知的 aquaponics 資料集名稱: {params.dset}") # 值無效或不符合預期
+        
+        dls = DataLoaders( # 建立資料加載器
+                datasetCls=Dataset_Tilapia, # ETT 分鐘級資料專用
+                dataset_kwargs={
+                'root_path': root_path,
+                'data_path': data_file,
+                'features': params.features, # 'M' 表示多變量（multivariate）
+                'scale': True, # 是否標準化
+                'size': size, # 對應的輸入/輸出長度
+                'use_time_features': params.use_time_features # 是否加上時間欄位（例如週期性特徵） # * flase
+                },
+                batch_size=params.batch_size, # 批次大小
+                workers=params.num_workers, # 執行緒數
+                ) # 給定 Dataset 所需的參數，包括資料檔名、標準化、是否加入時間特徵（如小時、週期）、資料切分長度（size），最後交由 DataLoaders() 包裝成 PyTorch 用的訓練與測試資料迭代器。
+
+
     # dataset is assume to have dimension len x nvars
     dls.vars, dls.len = dls.train.dataset[0][0].shape[1], params.context_points # dls.vars → 特徵數量（features）
                                                                                 # dls.len → 輸入長度（context）
