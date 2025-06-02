@@ -504,28 +504,32 @@ def get_model(model):
 
 
 def transfer_weights(weights_path, model, exclude_head=True, device='cpu'):
+    """
+    將預訓練模型的權重轉移到目前的模型。
+    -- weights_path: 權重檔的路徑(.pth)。
+    -- exclude_head: 若為 True, 則跳過名字中包含 'head' 的層（通常是輸出層）。
+    """
     # state_dict = model.state_dict()
-    new_state_dict = torch.load(weights_path, map_location=device)
+    new_state_dict = torch.load(weights_path, map_location=device) # 讀取儲存的 .pth 權重檔，並將權重放到指定的device。
     #print('new_state_dict',new_state_dict)
     matched_layers = 0
     unmatched_layers = []
-    for name, param in model.state_dict().items():        
-        if exclude_head and 'head' in name: continue
-        if name in new_state_dict:            
+    for name, param in model.state_dict().items(): # 逐層取出目前模型的每個參數名稱與內容。
+        if exclude_head and 'head' in name: continue # 如果 exclude_head=True，就跳過包含 'head' 名稱的層，通常是 output head。
+        if name in new_state_dict: # 如果這個層在預訓練模型裡也存在，且形狀一樣，就複製權重；否則記錄成 unmatched。
             matched_layers += 1
             input_param = new_state_dict[name]
             if input_param.shape == param.shape: param.copy_(input_param)
             else: unmatched_layers.append(name)
         else:
-            unmatched_layers.append(name)
-            pass # these are weights that weren't in the original model, such as a new head
-    if matched_layers == 0: raise Exception("No shared weight names were found between the models")
+            unmatched_layers.append(name) # these are weights that weren't in the original model, such as a new head
+    if matched_layers == 0: raise Exception("No shared weight names were found between the models") # 若完全沒有層可對應，則拋出錯誤。
     else:
-        if len(unmatched_layers) > 0:
+        if len(unmatched_layers) > 0: # 有未匹配層，EX. 預訓練模型的 .pth 權重中 沒有包含 layer_norm 層的參數。
             print(f'check unmatched_layers: {unmatched_layers}')
-        else:
+        else: # 完全匹配，表示此模型的架構與目前模型完全相符，且所有非 head 層的權重皆成功轉移。
             print(f"weights from {weights_path} successfully transferred!\n")
-    model = model.to(device)
+    model = model.to(device) # 將模型放到指定裝置上並回傳。
     return model
 
 

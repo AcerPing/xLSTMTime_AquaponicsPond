@@ -8,6 +8,7 @@ import pandas as pd
 from dataclasses import dataclass
 
 from src.learner import Learner
+from src.learner import transfer_weights
 from src.callback.core import *
 from src.callback.tracking import *
 from src.callback.scheduler import *
@@ -75,6 +76,8 @@ parser.add_argument('--features', type=str, default='MS', help='for multivariate
                                                                                                             # * NOTE MS -> 多變量預測單變量（multi→single）。
 parser.add_argument('--num_workers', type=int, default=1, help='number of workers for DataLoader') # ✅ DataLoader 多執行緒設定，用在 datautils.py。
 parser.add_argument('--out_dir', type=str, default='results', help='path for output directory') # ✅ 指定輸出目錄的路徑，預設值為 results。
+parser.add_argument('--train_mode', type=str, default='pre-train', help="transfer-learning (default : pre-train)") # ✅ 設定模式（在訓練時辨別是否為transfer-learning）
+parser.add_argument('--pretrain_path', type=str, default='pre_model_path(.pth)', help="使用遷移學習來訓練模型，從預訓練模型中提取權重並應用於新數據集。") # ✅ 設定模式（在訓練時辨別是否為transfer-learning）
 
 # TODO 【2】定義了但目前未被使用的參數（可能是保留、兼容或暫未實作）（❌代表未用到。）
 # 模型初始化
@@ -201,6 +204,13 @@ def train_func(lr=args.lr):
     model = get_model(dls.vars, args)
     #model = get_model(dls.vars, args, model_type)
 
+    if args.train_mode == 'transfer-learning': # TODO: 訓練遷移學習
+        # 遷移預訓練權重，將一個訓練好的模型權重（.pth 檔）轉移到另一個模型。
+        pretrain_path = args.pretrain_path # 預訓練模型檔案位置
+        print('transfer weights from pre-trained model (遷移學習：載入預訓練模型權重)')
+        print(f'載入預訓練模型權重: {pretrain_path}')
+        transfer_weights(pretrain_path, model, exclude_head=True, device='cuda')  # 若使用 GPU 則改為 'cuda'
+
     # get loss -> 訓練過程中，模型要計算 loss 來更新權重（backpropagation），必須知道怎麼計算 loss！
     # Ex. loss_func = combined_loss 或 loss_func = HuberLoss(delta = 0.25)
     # -- loss_func = torch.nn.L1Loss(reduction='mean') # MAE（Mean Absolute Error）。
@@ -267,7 +277,7 @@ def test_func():
 if __name__ == '__main__':
 
     if args.is_train: # 執行訓練流程
-
+        print(f'訓練模式: {args.train_mode}')
         suggested_lr = find_lr() # 自動尋找最適學習率
         args.suggested_lr = suggested_lr  # 將學習率加進參數紀錄
         save_arguments(args.save_path, configs) # 儲存訓練參數。
