@@ -173,6 +173,14 @@ def find_lr():
     dls = get_dls(args) # 載入訓練資料。
     model = get_model(dls.vars, args)
 
+    # 若為 transfer-learning，則載入預訓練權重並回傳模型
+    if args.train_mode == 'transfer-learning': # TODO: 訓練遷移學習
+        # 遷移預訓練權重，將一個訓練好的模型權重（.pth 檔）轉移到另一個模型。
+        pretrain_path = args.pretrain_path # 預訓練模型檔案位置
+        print('transfer weights from pre-trained model (遷移學習：載入預訓練模型權重)')
+        print(f'載入預訓練模型權重: {pretrain_path}')
+        model = transfer_weights(pretrain_path, model, exclude_head=True, device='cuda')  # 若使用 GPU 則改為 'cuda'
+
     # get loss -> 做小型的「訓練」，計算 loss 曲線。
     # Ex. loss_func = combined_loss
     # -- loss_func = torch.nn.L1Loss(reduction='mean') # MAE（Mean Absolute Error）。
@@ -204,12 +212,13 @@ def train_func(lr=args.lr):
     model = get_model(dls.vars, args)
     #model = get_model(dls.vars, args, model_type)
 
+    # 若為 transfer-learning，則載入預訓練權重並回傳模型
     if args.train_mode == 'transfer-learning': # TODO: 訓練遷移學習
         # 遷移預訓練權重，將一個訓練好的模型權重（.pth 檔）轉移到另一個模型。
         pretrain_path = args.pretrain_path # 預訓練模型檔案位置
         print('transfer weights from pre-trained model (遷移學習：載入預訓練模型權重)')
         print(f'載入預訓練模型權重: {pretrain_path}')
-        transfer_weights(pretrain_path, model, exclude_head=True, device='cuda')  # 若使用 GPU 則改為 'cuda'
+        model = transfer_weights(pretrain_path, model, exclude_head=True, device='cuda')  # 若使用 GPU 則改為 'cuda'
 
     # get loss -> 訓練過程中，模型要計算 loss 來更新權重（backpropagation），必須知道怎麼計算 loss！
     # Ex. loss_func = combined_loss 或 loss_func = HuberLoss(delta = 0.25)
