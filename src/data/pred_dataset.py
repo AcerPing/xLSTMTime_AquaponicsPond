@@ -534,6 +534,12 @@ class Dataset_Aquaponics (Dataset):
         num_train = int(len(df_raw) * self.train_split) # train資料筆數
         num_test = int(len(df_raw) * self.test_split) # test資料筆數
         num_valid = len(df_raw) - num_train - num_test # valid資料筆數
+        print(f"資料總數：{len(df_raw)}")
+        print(f"訓練集：{num_train} 筆 ({num_train / len(df_raw):.2%})")
+        print(f"驗證集：{num_valid} 筆 ({num_valid / len(df_raw):.2%})")
+        print(f"測試集：{num_test} 筆 ({num_test / len(df_raw):.2%})")
+        assert self.train_split + self.test_split <= 1.0, "train + test split 總和不能超過 1"
+
         # 定義每個 split 的「起點」索引
         border1s = [0, 
                     num_train - self.seq_len, 

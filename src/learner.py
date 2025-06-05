@@ -399,22 +399,23 @@ class Learner(GetAttr):
             plt.show() #  x 軸 → 學習率（Learning Rate）； y 軸 → 對應的 Loss。
         if suggestion: return cb.suggested_lr # 回傳建議的學習率。
         
-        
 
     def freeze(self):
         """ 
         freeze the model head
         require the model to have head attribute
+        凍結模型的主體部分，只訓練 output head (輸出層)，是 Transfer Learning 或 Fine-tuning 常見的做法。
+        只讓 model.head 可以被訓練，其餘主體參數全部凍結。
         """
-        if hasattr(get_model(self.model), 'head'): 
-            # print('model head is available')
-            for param in get_model(self.model).parameters(): param.requires_grad = False        
-            for param in get_model(self.model).head.parameters(): param.requires_grad = True
-            # print('model is frozen except the head')
+        if hasattr(get_model(self.model), 'head'): # 檢查 self.model是否含有 .head 這個屬性。
+            print('model head is available')
+            for param in get_model(self.model).parameters(): param.requires_grad = False # 把整個模型所有參數的 requires_grad 設為 False，也就是不更新這些參數、凍結。
+            for param in get_model(self.model).head.parameters(): param.requires_grad = True # 接著把 head 層的參數打開訓練，允許優化器更新這一部分的權重。
+            print('model is frozen except the head')
             
             
     def unfreeze(self):
-        for param in get_model(self.model).parameters(): param.requires_grad = True        
+        for param in get_model(self.model).parameters(): param.requires_grad = True # 取得模型中所有可訓練的參數（如權重與偏差），並啟用該參數的梯度更新。
 
 
     def __call__(self, name): # 傳進來一個字串，例如 'before_test'
@@ -509,9 +510,25 @@ def transfer_weights(weights_path, model, exclude_head=True, device='cpu'):
     -- weights_path: 權重檔的路徑(.pth)。
     -- exclude_head: 若為 True, 則跳過名字中包含 'head' 的層（通常是輸出層）。
     """
-    # state_dict = model.state_dict()
+    state_dict = model.state_dict()
     new_state_dict = torch.load(weights_path, map_location=device) # 讀取儲存的 .pth 權重檔，並將權重放到指定的device。
     #print('new_state_dict',new_state_dict)
+        
+    # 將所有參數搬到 CPU，以便比較
+    cpu_state_dict = {k: v.cpu() for k, v in state_dict.items()}
+    cpu_new_state_dict = {k: v.cpu() for k, v in new_state_dict.items()}
+    # 比較每個參數是否完全相同
+    all_equal = all(torch.equal(cpu_state_dict[k], cpu_new_state_dict[k]) for k in cpu_state_dict)
+    print("✅ 完全相同！" if all_equal else "❌ 權重不一致！")
+
+    print(f'exclude_head: {exclude_head}')
+    if exclude_head:
+        filtered_state_dict = {k: v for k, v in state_dict.items() if not k.startswith('head')}
+        print("Excluded head parameters:")
+        for k in state_dict.keys():
+            if k.startswith('head'):
+                print(f" - {k}")
+    
     matched_layers = 0
     unmatched_layers = []
     for name, param in model.state_dict().items(): # 逐層取出目前模型的每個參數名稱與內容。

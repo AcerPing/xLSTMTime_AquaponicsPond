@@ -38,7 +38,7 @@ if version.parse(torch.__version__) >= version.parse("2.1.0"):
             del kwargs['cuda']  # 移除不支援的參數
         return _original_include_paths(*args, **kwargs)
     torch.utils.cpp_extension.include_paths = include_paths_patched # 進用新的版本取代原來的函式（Monkey Patch）
-    print("✅ Patched torch.utils.cpp_extension.include_paths successfully!")
+    # print("✅ Patched torch.utils.cpp_extension.include_paths successfully!")
 from model import xlstm
 from xlstm.xlstm_block_stack import xLSTMBlockStack, xLSTMBlockStackConfig
 from xlstm.blocks.mlstm.block import mLSTMBlockConfig
@@ -78,30 +78,32 @@ parser.add_argument('--num_workers', type=int, default=1, help='number of worker
 parser.add_argument('--out_dir', type=str, default='results', help='path for output directory') # ✅ 指定輸出目錄的路徑，預設值為 results。
 parser.add_argument('--train_mode', type=str, default='pre-train', help="transfer-learning (default : pre-train)") # ✅ 設定模式（在訓練時辨別是否為transfer-learning）
 parser.add_argument('--pretrain_path', type=str, default='pre_model_path(.pth)', help="使用遷移學習來訓練模型，從預訓練模型中提取權重並應用於新數據集。") # ✅ 設定模式（在訓練時辨別是否為transfer-learning）
+parser.add_argument('--Freeze', action='store_true', help="Freeze transferred weights (default: unfreeze)") # ✅ 在遷移學習中凍結已轉移的權重。
+parser.add_argument('--EarlyStoppingPatient', type=int, default='25', help="Early Stopping") # ✅ 設定Early Stopping Patinet
 
 # TODO 【2】定義了但目前未被使用的參數（可能是保留、兼容或暫未實作）（❌代表未用到。）
 # 模型初始化
 # -- parser.add_argument('--n1', type=int, default=128, help='First Embedded representation')  #256 # 原意應為第一層 embedding，未使用。 ❌
 # 原本可能是用於 Mamba 模型的設定，但目前 xlstm 未使用
-parser.add_argument('--d_state', type=int, default=128, help='d_state parameter of Mamba')  #256 ❌
-parser.add_argument('--dconv', type=int, default=2, help='d_conv parameter of Mamba') # ❌
-parser.add_argument('--e_fact', type=int, default=2, help='expand factor parameter of Mamba') # ❌
-parser.add_argument('--residual', type=int, default=1, help='Residual Connection; True 1 False 0') # 殘差設定❌
+# parser.add_argument('--d_state', type=int, default=128, help='d_state parameter of Mamba')  #256 ❌
+# parser.add_argument('--dconv', type=int, default=2, help='d_conv parameter of Mamba') # ❌
+# parser.add_argument('--e_fact', type=int, default=2, help='expand factor parameter of Mamba') # ❌
+# parser.add_argument('--residual', type=int, default=1, help='Residual Connection; True 1 False 0') # 殘差設定❌
 # 和 Transformer 架構相關，原始碼中未被 xlstm 調用。
 # parser.add_argument('--n_layers', type=int, default=3, help='number of Transformer layers') # ❌
 # parser.add_argument('--d_model', type=int, default=256, help='Transformer d_model') # ❌
-parser.add_argument('--head_dropout', type=float, default=0, help='head dropout') # 沒有實際實作❌
-parser.add_argument('--dropout', type=float, default=0.2, help='Dropout')
+# parser.add_argument('--head_dropout', type=float, default=0, help='head dropout') # 沒有實際實作❌
+# parser.add_argument('--dropout', type=float, default=0.2, help='Dropout')
 # parser.add_argument('--d_ff', type=int, default=256, help='Tranformer MLP dimension')
 # parser.add_argument('--n_heads', type=int, default=16, help='number of Transformer heads')
 # parser = argparse.ArgumentParser(description='Swin Transformer training and evaluation script', add_help=False)
 # parser.add_argument('Swin Transformer training and evaluation script', add_help=False)
 # 保留給 config 檔用，但目前未使用。
-parser.add_argument('--cfg', type=str, required=False, metavar="FILE", help='path to config file') # ❌
-parser.add_argument("--opts", help="Modify config options by adding 'KEY VALUE' pairs. ", default=None, nargs='+') # ❌
+# parser.add_argument('--cfg', type=str, required=False, metavar="FILE", help='path to config file') # ❌
+# parser.add_argument("--opts", help="Modify config options by adding 'KEY VALUE' pairs. ", default=None, nargs='+') # ❌
 # 可能在多模型版本中有用，但目前 xlstm 還沒切換架構
-parser.add_argument('--model_type', type=str, default='based_model', help='for multivariate model or univariate model') # 多架構選擇時可用，目前僅支援 xLSTM。 ❌
-parser.add_argument('--ch_ind', type=int, default=1, help='Channel Independence; True 1 False 0') # 是否讓每個通道（feature）獨立建模，而不是共享參數或進行聯合建模。 #可能是為 Mamba 模型預留的❌
+# parser.add_argument('--model_type', type=str, default='based_model', help='for multivariate model or univariate model') # 多架構選擇時可用，目前僅支援 xLSTM。 ❌
+# parser.add_argument('--ch_ind', type=int, default=1, help='Channel Independence; True 1 False 0') # 是否讓每個通道（feature）獨立建模，而不是共享參數或進行聯合建模。 #可能是為 Mamba 模型預留的❌
 
 # TODO 【3】取決於是否啟用某些功能的參數
 parser.add_argument('--revin', type=int, default=0, help='reversible instance normalization') # 關閉 RevIN（可逆標準化）。 # cbs = [RevInCB(dls.vars)] if args.revin else []
@@ -115,7 +117,7 @@ parser.add_argument('--scaler', type=str, default='minmax', help='scale the inpu
 # -- parser.add_argument('--pct_start', type=float, default=0.2, help='有多少比例的n_epochs用於「學習率從初始值提升到最高值」') # ✅ 訓練總迭代次數，在 learn.fit_one_cycle 會用到。
 
 args = parser.parse_args()
-print('args:', args)
+print('args:', args, '\n')
 
 # 設定儲存模型的名稱與路徑 # !!! 需要修改檔名命名方式
 args.save_model_name = f"{args.model_name}_cw{args.context_points}_tw{args.target_points}_epochs{args.n_epochs}_model{args.model_id}" # 模型名稱
@@ -177,6 +179,8 @@ def find_lr():
     if args.train_mode == 'transfer-learning': # TODO: 訓練遷移學習
         # 遷移預訓練權重，將一個訓練好的模型權重（.pth 檔）轉移到另一個模型。
         pretrain_path = args.pretrain_path # 預訓練模型檔案位置
+        if not os.path.exists(pretrain_path):
+            raise FileNotFoundError(f"❌ 找不到預訓練模型權重檔案: {pretrain_path}")
         print('transfer weights from pre-trained model (遷移學習：載入預訓練模型權重)')
         print(f'載入預訓練模型權重: {pretrain_path}')
         model = transfer_weights(pretrain_path, model, exclude_head=True, device='cuda')  # 若使用 GPU 則改為 'cuda'
@@ -216,6 +220,8 @@ def train_func(lr=args.lr):
     if args.train_mode == 'transfer-learning': # TODO: 訓練遷移學習
         # 遷移預訓練權重，將一個訓練好的模型權重（.pth 檔）轉移到另一個模型。
         pretrain_path = args.pretrain_path # 預訓練模型檔案位置
+        if not os.path.exists(pretrain_path):
+            raise FileNotFoundError(f"❌ 找不到預訓練模型權重檔案: {pretrain_path}")
         print('transfer weights from pre-trained model (遷移學習：載入預訓練模型權重)')
         print(f'載入預訓練模型權重: {pretrain_path}')
         model = transfer_weights(pretrain_path, model, exclude_head=True, device='cuda')  # 若使用 GPU 則改為 'cuda'
@@ -238,7 +244,7 @@ def train_func(lr=args.lr):
                                                                                            # 設定 儲存的檔名 與 儲存的資料夾路徑。
                                                                                            # * 設 min_delta=0.001 或 0.002 會讓模型儲存更謹慎，僅在有意義的進步時更新最佳檔案。
         CSVLogger(save_dir=args.save_path, filename='epoch_log.csv'),  # 將訓練過程中每一個epoch的損失與評估指標儲存為 .csv 檔
-        EarlyStoppingCB(monitor='valid_loss', min_delta=0.000001, patient=25) # 早停法，避免過擬合。
+        EarlyStoppingCB(monitor='valid_loss', min_delta=0.000001, patient=args.EarlyStoppingPatient) # 早停法，避免過擬合。
                                                                                 # 由於有使用fit_one_cycle，因此 patient 要設大一點，例如 patient = 10~20。
     ]
 
@@ -248,8 +254,17 @@ def train_func(lr=args.lr):
                     cbs=cbs,
                     metrics=[mse, rmse, mae, r2_score, EVS_score]
                     )
+    
+    if args.train_mode == 'transfer-learning': # TODO: 訓練遷移學習
+        if args.Freeze:
+            print(f'在遷移學習中，是否凍結權重: {args.Freeze}，即凍結權重。')
+            learn.freeze() # 先凍結 backbone，只訓練 head
+        else:
+            print(f'在遷移學習中，是否凍結權重: {args.Freeze}，即解凍權重。')
+            learn.unfreeze() # 解凍模型的所有參數
 
     # fit the data to the model
+    # learn.fine_tune(n_epochs=args.n_epochs, base_lr=lr, freeze_epochs=3, pct_start=0.2) # fine_tune
     learn.fit_one_cycle(n_epochs=args.n_epochs, lr_max=lr, pct_start=0.2) # 使用 fit_one_cycle 進行訓練，先提高學習率再慢慢降低，先升高 → 達到高峰 → 再慢慢下降。
 
 
@@ -260,7 +275,7 @@ def test_func():
     weight_path = args.save_path + '/' + args.save_model_name + '.pth' # 載入權重 .pth
     if not os.path.exists(weight_path): # 確認權重檔案是否存在
         raise FileNotFoundError(f"❌ 找不到模型權重檔案: {weight_path}！ \n")
-    print(f"✅ 準備載入模型權重檔案: {weight_path}")
+    print(f"✅ 載入模型權重檔案: {weight_path}")
 
     # get dataloader
     dls = get_dls(args) # 載入測試集資料。
