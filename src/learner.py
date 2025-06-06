@@ -521,7 +521,7 @@ def transfer_weights(weights_path, model, exclude_head=True, device='cpu'):
     all_equal = all(torch.equal(cpu_state_dict[k], cpu_new_state_dict[k]) for k in cpu_state_dict)
     print("✅ 完全相同！" if all_equal else "❌ 權重不一致！")
 
-    print(f'exclude_head: {exclude_head}')
+    print(f'Excluded head: {exclude_head}')
     if exclude_head:
         filtered_state_dict = {k: v for k, v in state_dict.items() if not k.startswith('head')}
         print("Excluded head parameters:")

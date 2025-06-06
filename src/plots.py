@@ -146,6 +146,16 @@ def plot_feature_actual_vs_predicted(actual: torch.Tensor, predicted: torch.Tens
     plt.figure(figsize=(10, 6)) # figsize=(30, 10), plt.rcParams["font.size"] = 18 # 設置字體大小
     plt.plot(range(len(actual_flat)), actual_flat, label="Actual (Ground Truth)", color='blue', marker='o', markersize=2, linestyle='-') # plt.plot(actual_feature, label="Actual", color='blue')
     plt.plot(range(len(predicted_flat)), predicted_flat, label="Predicted", color='red', marker='x', markersize=2, linestyle='--') # plt.plot(predicted_feature, label="Predicted", color='red', linestyle='--')
+    
+    # 在每個點上顯示數據標籤 (實際數據)
+    for i, value in enumerate(actual_flat):
+        if i % 1000 == 0:  # 每隔 1000 個數據點顯示一次標籤
+            plt.annotate(f'{value:.2f}', xy=(i, value), xytext=(0, 5), textcoords="offset points", ha='center', va='bottom', color='dodgerblue', fontsize=12, alpha=0.9)
+    # 在每個點上顯示數據標籤 (預測數據)
+    for i, value in enumerate(predicted_flat):
+        if i % 1000 == 0:  # 每隔 1000 個數據點顯示一次標籤
+            plt.annotate(f'{value:.2f}', xy=(i, value),  xytext=(0, -5), textcoords="offset points", ha='center', va='top', color='crimson', fontsize=12, alpha=0.9)
+    
     plt.title(f"[xLSTM] Actual vs Predicted Fish Weight (All Test Data)")
     plt.xlabel("樣本序列")
     plt.xlim(0, len(actual_flat)) # 設置x軸範圍，從0到實際數據的長度。
