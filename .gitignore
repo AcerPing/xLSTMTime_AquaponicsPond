@@ -13,6 +13,11 @@ results/**
 
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/
 !results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/Ensemble Learning 集成學習/
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/Ensemble Learning 集成學習/**
+
+!results/Aquaponics Record 歷程訓練記錄/without-transfer-learning/
+
 #--------------------------------------------------------------------------------------------------
 # ✅ IoTPond2（例外保留）
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/
@@ -42,9 +47,13 @@ results/**
 
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★★ aquaponics IoTPond3-3 ★★★
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★★ aquaponics IoTPond3-3 ★★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond3 → IoTPond1/★ Preferred Best ★
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond3 → IoTPond1/★ Preferred Best ★/**
 #--------------------------------------------------------------------------------------------------
 # ✅ IoTPond4（例外保留）
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond4 → IoTPond1/
 
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-11-1 ★★
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★ 2025-05-11-1 ★★/**
@@ -75,3 +84,20 @@ results/**
 
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★★ aquaponics IoTPond4-6 ★★★
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond4/★★★ aquaponics IoTPond4-6 ★★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond4 → IoTPond1/★ Preferred Best ★
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond4 → IoTPond1/★ Preferred Best ★/**
+#--------------------------------------------------------------------------------------------------
+# ✅ IoTPond1（例外保留）
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond1/
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond1/★★ 2025-05-14-13 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond1/★★ 2025-05-14-13 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond1/★★ aquaponics IoTPond1-5 ★★
+!results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond1/★★ aquaponics IoTPond1-5 ★★/**
+
+!results/Aquaponics Record 歷程訓練記錄/without-transfer-learning/★ aquaponics IoTPond1-4 ★/
+!results/Aquaponics Record 歷程訓練記錄/without-transfer-learning/★ aquaponics IoTPond1-4 ★/**
+#--------------------------------------------------------------------------------------------------
+
