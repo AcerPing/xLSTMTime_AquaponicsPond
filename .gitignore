@@ -10,19 +10,26 @@ results/**
 
 # 解除忽略（每一層都要解鎖）
 !results/Aquaponics Record 歷程訓練記錄/
+
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/
 #--------------------------------------------------------------------------------------------------
 # ✅ IoTPond2（例外保留）
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond2 → IoTPond1/
 
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/★ 2025-05-07-1（設定Learning Rate為1e-4，為目前最佳）★/
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/★ 2025-05-07-1（設定Learning Rate為1e-4，為目前最佳）★/**
 
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/★ aquaponics_IoTPond2-1 ★
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond2/★ aquaponics_IoTPond2-1 ★/**
+
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond2 → IoTPond1/★ 2025-06-04-2 ★
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond2 → IoTPond1/★ 2025-06-04-2 ★/**
 #--------------------------------------------------------------------------------------------------
 # ✅ IoTPond3（例外保留）
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/
+!results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond3 → IoTPond1/
 
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★ 2025-05-10-3 ★★
 !results/Aquaponics Record 歷程訓練記錄/環境因素+Fish Length/IoTPond3/★★ 2025-05-10-3 ★★/**
