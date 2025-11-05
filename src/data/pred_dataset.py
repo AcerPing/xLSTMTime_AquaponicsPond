@@ -480,7 +480,7 @@ class Dataset_Aquaponics (Dataset):
                  features='MS', data_path='cleaned_IoTPond2.csv',
                  target='fish_weight', scale=True, timeenc=0, freq='T',
                  time_col_name='created_at', use_time_features=False, 
-                 train_split=0.7, test_split=0.2
+                 train_split=0.2*0.8, test_split=0.8
                  ):
         """
         Dataset_Custom 是「針對訓練用」的 Dataset，讀入 CSV 資料，分成 train/val/test，標準化後，取出 (context, label, target) 三段資料，支援加時間特徵。

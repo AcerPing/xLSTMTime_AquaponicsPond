@@ -34,7 +34,7 @@ class Learner(GetAttr):
 
     def __init__(self, dls, model, 
                         loss_func=None, 
-                        lr=1e-3, 
+                        lr=1e-5, 
                         cbs=None, 
                         metrics=None, 
                         opt_func=AdamW, # -- Adam, AdamW 
