@@ -101,3 +101,4 @@ results/**
 !results/Aquaponics Record 歷程訓練記錄/without-transfer-learning/★ aquaponics IoTPond1-4 ★/**
 #--------------------------------------------------------------------------------------------------
 
+results/Aquaponics Record 歷程訓練記錄/Transfer Learning（環境因素+Fish Length）/IoTPond2 → IoTPond1/★ 2025-06-04-2 ★/★ aquaponics IoTPond1( lr=1e-4 & R2 Score 0.76 ) ★/actual_vs_predicted.png
